@@ -426,13 +426,17 @@ bool OpenGLWidget::event(QEvent* event){
                 const float mousey = 1.0f - 2.0f * (float)mouseEvent->pos().y()/viewHeight;
 //                printf("mousex: %f mousey: %f\n", mousex, mousey);
                 const float moveDirection[2] = {mousex - mousePosition[0], mousey - mousePosition[1]};
-                viewRotation[0] += moveDirection[1];
-                viewRotation[1] += moveDirection[0];
-                if(viewRotation[0] > 6.28318530718f){
-                    viewRotation[0] = viewRotation[0] - 6.28318530718f;
+                viewRotation[0] -= moveDirection[1];
+                viewRotation[1] -= moveDirection[0];
+                if(viewRotation[0] > 1.55334f){
+                    viewRotation[0] = 1.55334f;
+                }else if(viewRotation[0] < -1.55334f){
+                    viewRotation[0] = -1.55334f;
                 }
                 if(viewRotation[1] > 6.28318530718f){
                     viewRotation[1] = viewRotation[1] - 6.28318530718f;
+                }else if(viewRotation[1] < 6.28318530718f){
+                    viewRotation[1] = viewRotation[1] + 6.28318530718f;
                 }
                 printf("viewRotation: %f %f\n", viewRotation[0], viewRotation[1]);
 
@@ -451,15 +455,15 @@ bool OpenGLWidget::event(QEvent* event){
                 printf("viewPosition: %f %f %f\n", viewPosition[0], viewPosition[1], viewPosition[2]);
 
                 transformMatrix[0] = rightDirection.x();
-                transformMatrix[1] = upDirection.x();
-                transformMatrix[2] = -forwardDirection.x();
+                transformMatrix[1] = rightDirection.y();
+                transformMatrix[2] = rightDirection.z();
                 transformMatrix[3] = -QVector3D::dotProduct(rightDirection, viewPos);
-                transformMatrix[4] = rightDirection.y();
+                transformMatrix[4] = upDirection.x();
                 transformMatrix[5] = upDirection.y();
-                transformMatrix[6] = -forwardDirection.y();
+                transformMatrix[6] = upDirection.z();
                 transformMatrix[7] = -QVector3D::dotProduct(upDirection, viewPos);
-                transformMatrix[8] = rightDirection.z();
-                transformMatrix[9] = upDirection.z();
+                transformMatrix[8] = -forwardDirection.x();
+                transformMatrix[9] = -forwardDirection.y();
                 transformMatrix[10] = -forwardDirection.z();
                 transformMatrix[11] = QVector3D::dotProduct(forwardDirection, viewPos);
                 transformMatrix[12] = 0.0f;
