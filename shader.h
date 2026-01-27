@@ -19,7 +19,7 @@ public:
     void InitializeGLFunctions(QOpenGLContext* context);
 
     void CreateProgram(const char* vertexShaderSource, const char* fragmentShaderSource);
-    void UseProgram();
+    bool UseProgram();
     void AddAttribute(const float* values, const int size, const char* name, const int stride);
     void AddUniform(const float* values, const int size, const char* name, const GLboolean transpose);
 

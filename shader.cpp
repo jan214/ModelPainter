@@ -57,11 +57,13 @@ void Shader::CreateProgram(const char* vertexShaderSource, const char* fragmentS
     glLinkProgram(programIndex);
 }
 
-void Shader::UseProgram(){
+bool Shader::UseProgram(){
     if(programIndex == 0){
         printf("program index == 0\n");
+        return false;
     }
     glUseProgram(programIndex);
+    return true;
 }
 
 void Shader::AddAttribute(const float* values, const int size, const char* name, const int stride){
@@ -94,8 +96,10 @@ void Shader::AddAttribute(const float* values, const int size, const char* name,
 void Shader::AddUniform(const float* values, const int size, const char* name, const GLboolean transpose){
     const GLuint uniformLocation = glGetUniformLocation(programIndex, name);
 
-    if(size == 1){
+    if(size == 1 && values == nullptr){
         glUniform1i(uniformLocation, uniforms.size());
+    }else if(size == 1 && values != nullptr){
+        glUniform1fv(uniformLocation, 1, values);
     }else if(size == 2){
         glUniform2fv(uniformLocation, 1, &values[0]);
     }else if(size == 3){
@@ -109,8 +113,10 @@ void Shader::AddUniform(const float* values, const int size, const char* name, c
 }
 
 void Shader::ChangeUniform(const int index, const float* values, const int size, const GLboolean transpose){
-    if(size == 1){
+    if(size == 1 && values == nullptr){
         glUniform1i(uniforms[index], index);
+    }else if(size == 1 && values != nullptr){
+        glUniform1fv(uniforms[index], 1, values);
     }else if(size == 2){
         glUniform2fv(uniforms[index], 1, &values[0]);
     }else if(size == 3){

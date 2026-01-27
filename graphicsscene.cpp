@@ -5,7 +5,7 @@
 GraphicsScene::GraphicsScene(QObject* const parent) :
 QGraphicsScene(parent)
 {
-    setSceneRect(0,0,400,400);
+    setSceneRect(0,0,512,512);
 }
 
 void GraphicsScene::drawBackground(QPainter* painter, const QRectF& rect){
@@ -13,6 +13,8 @@ void GraphicsScene::drawBackground(QPainter* painter, const QRectF& rect){
     QPen gridPen(Qt::lightGray);
     gridPen.setWidth(0);
     painter->setPen(gridPen);
+    painter->save();
+    painter->resetTransform();
 
     for(int count = 0; count < 10; count++){
         painter->drawLine(0,count/10.0*rect.height(),rect.width(),count/10.0*rect.height());
@@ -23,6 +25,7 @@ void GraphicsScene::drawBackground(QPainter* painter, const QRectF& rect){
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setRenderHint(QPainter::TextAntialiasing, true);
     painter->drawText(20,20,"Graphics View");
+    painter->restore();
 }
 
 void GraphicsScene::drawForeground(QPainter* painter, const QRectF& rect){
