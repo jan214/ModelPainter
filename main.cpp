@@ -14,6 +14,7 @@
 #include "graphicsview.h"
 #include "shader.h"
 #include "brushwidget.h"
+#include "contactdialog.h"
 
 int main(int argc, char **argv)
 {
@@ -50,9 +51,11 @@ int main(int argc, char **argv)
     QAction* const testAction = fileMenu->addAction("something");
     QObject::connect(testAction, &QAction::triggered, [](){printf("test\n");});
 
-    QMenu* contactMenu = window.menuBar()->addMenu("Contact");
-    QAction* const testAction2 = contactMenu->addAction("something");
-    QObject::connect(testAction2, &QAction::triggered, [](){printf("test\n");});
+    ContactDialog contactDialog(&window);
+
+    QMenu* helpMenu = window.menuBar()->addMenu("Help");
+    QAction* const testAction2 = helpMenu->addAction("Contact");
+    QObject::connect(testAction2, &QAction::triggered, [&contactDialog]() {contactDialog.exec(); printf("test\n"); });
 
     // this line needs to be moved once this architecture is better
     GLuint baseColorTexture;

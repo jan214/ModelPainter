@@ -26,8 +26,21 @@ set(SOURCES
         shader.cpp
 	shader.h
         brushwidget.cpp
-        brushwidget.h)
+        brushwidget.h
+        contactdialog.cpp
+        contactdialog.h)
 
-qt_add_executable(ModelPainter ${SOURCES})
+qt_add_executable(ModelPainter WIN32 ${SOURCES})
 
 target_link_libraries(ModelPainter PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::OpenGL Qt6::OpenGLWidgets)
+
+install(TARGETS ModelPainter 
+    RUNTIME DESTINATION bin
+)
+
+qt_generate_deploy_app_script(
+    TARGET ModelPainter
+    OUTPUT_SCRIPT deploy_script
+)
+
+install(SCRIPT ${deploy_script})
