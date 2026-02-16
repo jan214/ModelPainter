@@ -9,12 +9,12 @@
 
 class ContactDialog : public QDialog {
 public:
-	explicit ContactDialog(QWidget* const parent = nullptr);
+    explicit ContactDialog(QWidget* parent = nullptr);
 	~ContactDialog(){}
 protected:
 	class ContactItem : public QWidget {
 	public:
-		explicit ContactItem(QImage image, QString text, const bool isLink = false, const bool isCopyable = false, QWidget* parent = nullptr);
+        explicit ContactItem(QImage image, QString text, QWidget* parent = nullptr, const bool isLink = false, const bool isCopyable = false);
 		~ContactItem(){}
 
 		void AddWidget(QWidget* widget);

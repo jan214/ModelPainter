@@ -52,10 +52,12 @@ int main(int argc, char **argv)
     QObject::connect(testAction, &QAction::triggered, [](){printf("test\n");});
 
     ContactDialog contactDialog(&window);
+    contactDialog.move(window.rect().center().x() - contactDialog.width()/2,
+                       window.rect().center().y() - contactDialog.height()/2);
 
     QMenu* helpMenu = window.menuBar()->addMenu("Help");
     QAction* const testAction2 = helpMenu->addAction("Contact");
-    QObject::connect(testAction2, &QAction::triggered, [&contactDialog]() {contactDialog.exec(); printf("test\n"); });
+    QObject::connect(testAction2, &QAction::triggered, [&contactDialog]() { contactDialog.open(); });
 
     // this line needs to be moved once this architecture is better
     GLuint baseColorTexture;

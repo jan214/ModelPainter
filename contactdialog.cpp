@@ -5,7 +5,7 @@
 #include <QPainter>
 #include <QPainterPath>
 
-ContactDialog::ContactItem::ContactItem(QImage image, QString text, const bool isLink, const bool isCopyable, QWidget* parent) :
+ContactDialog::ContactItem::ContactItem(QImage image, QString text, QWidget* parent, const bool isLink, const bool isCopyable) :
 QWidget(parent),
 mainLayout(this),
 icon(this),
@@ -14,6 +14,9 @@ label(text, this){
 	setStyleSheet("#ContactItem{ padding: 2px; color: rgba(33,33,33,255); padding: 2px; border: none; }"
 					"#ContactItem #Label{ padding: 2px; }"
 					"#ContactItem::hover{ background-color: rgba(56,56,56,125); border-radius: 4px; }");
+
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+
 	mainLayout.setSpacing(0);
 	icon.setPixmap(QPixmap::fromImage(image));
 	icon.setFixedSize(QSize(16, 16));
@@ -35,7 +38,7 @@ void ContactDialog::ContactItem::AddWidget(QWidget* widget) {
 	mainLayout.addWidget(widget);
 }
 
-ContactDialog::ContactDialog(QWidget* const parent) :
+ContactDialog::ContactDialog(QWidget* parent) :
 QDialog(parent),
 mainLayout(this),
 closeButton("Close", this){
@@ -43,21 +46,24 @@ closeButton("Close", this){
 	setAttribute(Qt::WA_TranslucentBackground);
 
 	if (parent != nullptr) {
-		setFixedWidth(parent->width() / 3);
-	}
+        setFixedWidth(parent->width() / 3);
+    }
 
+    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
+
+    mainLayout.setSizeConstraint(QLayout::SetMinimumSize);
 	mainLayout.setSpacing(0);
 
 	QPixmap testPixmap = QIcon::fromTheme("edit-copy").pixmap(QSize(16, 16));
 
-	ContactItem* nameItem = new ContactItem(testPixmap.toImage(), "Jan Moritz", this);
+    ContactItem* nameItem = new ContactItem(testPixmap.toImage(), "Jan Moritz", this);
 	mainLayout.addWidget(nameItem);
 
-	ContactItem* websiteItem = new ContactItem(testPixmap.toImage(), "<a href='https://jan214.github.io'>jan214.github.io</a>", /*isLink*/ true, /*isCopyable*/ false, this);
+    ContactItem* websiteItem = new ContactItem(testPixmap.toImage(), "<a href='https://jan214.github.io'>jan214.github.io</a>", this, /*isLink*/ true, /*isCopyable*/ false);
 	mainLayout.addWidget(websiteItem);
 
 	const QString emailAddress("janmoritz@hotmail.de");
-	ContactItem* emailAddressItem = new ContactItem(testPixmap.toImage(), emailAddress, /*isLink*/ false, /*isCopyable*/ true, this);
+    ContactItem* emailAddressItem = new ContactItem(testPixmap.toImage(), emailAddress, this, /*isLink*/ false, /*isCopyable*/ true);
 	QPushButton* copyButton = new QPushButton(QIcon::fromTheme("edit-copy"), "", emailAddressItem);
 	copyButton->setObjectName("CopyButton");
 	copyButton->setFixedSize(QSize(websiteItem->height(), websiteItem->height()));
@@ -72,7 +78,7 @@ closeButton("Close", this){
 	closeButton.setStyleSheet("#CloseButton{ color: rgba(51,51,51,255); background-color: rgba(221,221,221,125); border-radius: 4px; border: 1px solid rgba(245,245,245,255); } #CloseButton::hover{ color: rgba(245,245,245,255); background-color: rgba(56,56,56,125); border: 1px solid rgba(51,51,51,255); }");
 	closeButton.setFixedHeight(27);
 
-	QObject::connect(&closeButton, &QPushButton::clicked, [this]() { close(); });
+    QObject::connect(&closeButton, &QPushButton::clicked, this, [this]() { close(); });
 	
 	mainLayout.addWidget(&closeButton);
 }
