@@ -185,7 +185,7 @@ void OpenGLWidget::OnBrushChanged(const QImage& brushTexture){
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, brushColorTexture);
     const int brushTextureSize = 128;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, brushTexture.bits());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, brushTexture.bits());
 
     brushShader.ChangeUniform(1, nullptr, 1, GL_FALSE);
 }
@@ -317,7 +317,7 @@ void OpenGLWidget::initializeGL(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     const int brushTextureSize = 128;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
 
     brushShader.AddUniform(nullptr, 1, "brushColorTexture", GL_FALSE);
 
@@ -348,6 +348,7 @@ void OpenGLWidget::paintGL(){
         const float hitPointTemp[2] = {hitPoint.x(), hitPoint.y()};
         printf("OpenGLWidget::paintGL hitPointTemp: %f %f\n", hitPointTemp[0], hitPointTemp[1]);
         brushShader.ChangeUniform(0, &hitPointTemp[0], 2, GL_FALSE);
+        glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, brushColorTexture);
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -378,6 +379,7 @@ void OpenGLWidget::paintGL(){
     defaultShader.ChangeUniform(1, &perspectiveMatrix[0], 16, GL_FALSE);
     defaultShader.ChangeUniform(2, transformMat.data(), 16, GL_FALSE);
 
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, baseColorTexture);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 

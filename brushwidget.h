@@ -6,11 +6,80 @@
 #include <QLabel>
 #include <QImage>
 #include <QSlider>
+#include <QDoubleSpinBox>
+#include <QPushButton>
+#include <QDialog>
 #if defined(__EMSCRIPTEN__)
 #include <QOpenGLFunctions>
 #else
 #include <QOpenGLFunctions_3_0>
 #endif
+
+class SliderWidget : public QWidget{
+    Q_OBJECT
+public:
+    explicit SliderWidget(QString text, QWidget* parent = nullptr, double minimum = 0.0, double maximum = 1.0, double value = 0.0);
+    ~SliderWidget();
+
+    void OnSliderValueChanged(int sliderValue);
+    void OnSpinboxValueChanged(double spinboxValue);
+
+    static void GetLongestNameplateWidth(QWidget* widgets[], const int size);
+
+signals:
+    void changedValue(double value, double maximum);
+
+protected:
+    QHBoxLayout mainLayout;
+    QLabel sliderLabel;
+    QSlider slider;
+    QDoubleSpinBox sliderSpinbox;
+
+    double minimum;
+    double maximum;
+    double value;
+};
+
+class ColorPicker : public QDialog{
+    Q_OBJECT
+public:
+    explicit ColorPicker(QWidget* parent = nullptr);
+    ~ColorPicker(){}
+
+    void Initialize(int red, int green, int blue);
+signals:
+    void colorChanged(QColor newColor);
+
+protected:
+    bool eventFilter(QObject* object, QEvent* event);
+
+    QVBoxLayout mainLayout;
+
+    QImage colorPaletteImage;
+    QLabel colorPaletteWrapper;
+    QWidget colorSliderWrapper;
+    QVBoxLayout colorSliderWrapperLayout;
+    SliderWidget redSlider;
+    SliderWidget greenSlider;
+    SliderWidget blueSlider;
+    QPushButton closeButton;
+};
+
+class ColorPickerWidget : public QWidget{
+    Q_OBJECT
+public:
+    explicit ColorPickerWidget(QString text, ColorPicker& colorPicker, QWidget* parent = nullptr);
+    ~ColorPickerWidget(){}
+
+    inline QColor GetPickerColor();
+    void SetPickerColor(const QColor newColor);
+protected:
+    QHBoxLayout mainLayout;
+    QLabel colorPickerLabel;
+    QPushButton colorPickerColor;
+
+    const ColorPicker& colorPicker;
+};
 
 class BrushWidget : public QWidget
 {
@@ -23,13 +92,15 @@ signals:
     void BrushChanged(const QImage& brushTexture);
 
 protected:
-    void onValueChanged(int value);
+    void onValueChanged(double value, double maximum);
+    void onColorChanged(QColor newColor);
 
-    QVBoxLayout layout;
+    QVBoxLayout mainLayout;
     QImage brushPreview;
     QLabel brushPreviewWrapper;
-    QSlider slider1;
-    QSlider slider2;
+    ColorPicker colorPicker;
+    ColorPickerWidget colorPickerWidget;
+    SliderWidget smoothnessSlider;
 };
 
 #endif // BRUSHWIDGET_H
