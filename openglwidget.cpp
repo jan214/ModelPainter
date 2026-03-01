@@ -157,9 +157,11 @@ hitPoint(0.0f,0.0f,0.0f)
     transformMatrix[14] = 0.0f;
     transformMatrix[15] = 1.0f;
 
+#if _DEBUG
     errorList->AddError("Error: 1", ErrorList::MessageType::Error);
     errorList->AddError("Warning: 2", ErrorList::MessageType::Warning);
     errorList->AddError("Message: 3", ErrorList::MessageType::None);
+#endif
 
     printf("openGLWidget constructed\n");
 }
@@ -391,9 +393,14 @@ void OpenGLWidget::paintGL(){
 bool OpenGLWidget::event(QEvent* event){
     if(event->type() == QEvent::MouseButtonPress){
         QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event);
-        mousePosition[0] = 2.0f * (float)mouseEvent->pos().x()/viewWidth - 1.0f;
-        mousePosition[1] = 1.0f - 2.0f * (float)mouseEvent->pos().y()/viewHeight;
+        const float devicePixelRatioValue = (float)devicePixelRatioF();
+        mousePosition[0] = 2.0f * ((float)mouseEvent->pos().x()* devicePixelRatioValue)/viewWidth - 1.0f;
+        mousePosition[1] = 1.0f - 2.0f * ((float)mouseEvent->pos().y()* devicePixelRatioValue)/viewHeight;
 //        printf("mousePosition: %f %f\n", mousePosition[0], mousePosition[1]);
+
+#if _DEBUG
+        errorList->AddError(QString("mousePosition: %1 %2").arg(mousePosition[0]).arg(mousePosition[1]), ErrorList::None);
+#endif
 
         if(!(mouseEvent->modifiers() & Qt::ShiftModifier) && mouseEvent->buttons() == Qt::LeftButton){
 //            printf("ViewportSize: %i %i\n", width, height);
@@ -412,6 +419,7 @@ bool OpenGLWidget::event(QEvent* event){
                 // this needs quadtree optimization
                 raycast(&mousePosition[0], &triangleVertices[0],&triangleTextureCoordinates[0], hitPoint, distance);
             }
+
             update();
             emit DrawChanged();
         }else if(mouseEvent->buttons() == Qt::MiddleButton){
@@ -492,8 +500,9 @@ bool OpenGLWidget::event(QEvent* event){
                 emit DrawChanged();
             }
 
-            mousePosition[0] = 2.0f * (float)mouseEvent->pos().x()/viewWidth - 1.0f;
-            mousePosition[1] = 1.0f - 2.0f * (float)mouseEvent->pos().y()/viewHeight;
+            const float devicePixelRatioValue = (float)devicePixelRatioF();
+            mousePosition[0] = 2.0f * ((float)mouseEvent->pos().x() * devicePixelRatioValue) / viewWidth - 1.0f;
+            mousePosition[1] = 1.0f - 2.0f * ((float)mouseEvent->pos().y() * devicePixelRatioValue) / viewHeight;
             update();
 
             return true;
@@ -552,9 +561,9 @@ bool OpenGLWidget::event(QEvent* event){
 }
 
 void OpenGLWidget::resizeGL(int w, int h){
-    const float devicePixelRatio = qApp->devicePixelRatio();
-    viewWidth = w * devicePixelRatio;
-    viewHeight = h * devicePixelRatio;
+    const qreal devicePixelRatioValue = devicePixelRatio();
+    viewWidth = w * devicePixelRatioValue;
+    viewHeight = h * devicePixelRatioValue;
     glViewport(0, 0, viewWidth, viewHeight);
 
     aspectScale = viewWidth/viewHeight;

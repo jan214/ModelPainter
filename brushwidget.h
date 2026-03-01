@@ -9,6 +9,8 @@
 #include <QDoubleSpinBox>
 #include <QPushButton>
 #include <QDialog>
+#include <QScrollArea>
+#include <QLineEdit>
 #if defined(__EMSCRIPTEN__)
 #include <QOpenGLFunctions>
 #else
@@ -30,6 +32,9 @@ signals:
     void changedValue(double value, double maximum);
 
 protected:
+    bool eventFilter(QObject* object, QEvent* event) override;
+    void resizeEvent(QResizeEvent* resizeEvent) override;
+
     QHBoxLayout mainLayout;
     QLabel sliderLabel;
     QSlider slider;
@@ -38,19 +43,31 @@ protected:
     double minimum;
     double maximum;
     double value;
+
+    struct {
+        QLineEdit* lineEdit;
+        bool mouseDown;
+        QPoint mousePosition;
+    } spinboxDrag;
 };
 
 class ColorPicker : public QDialog{
     Q_OBJECT
 public:
-    explicit ColorPicker(QWidget* parent = nullptr);
-    ~ColorPicker(){}
+    static ColorPicker& GetInstance() {
+        static ColorPicker instance;
+        return instance;
+    }
 
-    void Initialize(int red, int green, int blue);
+    ColorPicker(const ColorPicker&) = delete;
+    ColorPicker& operator=(const ColorPicker&) = delete;
 signals:
     void colorChanged(QColor newColor);
 
 protected:
+    explicit ColorPicker(QWidget* parent = nullptr);
+    ~ColorPicker() {}
+
     bool eventFilter(QObject* object, QEvent* event);
 
     QVBoxLayout mainLayout;
@@ -77,8 +94,6 @@ protected:
     QHBoxLayout mainLayout;
     QLabel colorPickerLabel;
     QPushButton colorPickerColor;
-
-    const ColorPicker& colorPicker;
 };
 
 class BrushWidget : public QWidget
@@ -96,9 +111,11 @@ protected:
     void onColorChanged(QColor newColor);
 
     QVBoxLayout mainLayout;
+    QScrollArea scrollArea;
+    QWidget scrollAreaWrapperWidget;
+    QVBoxLayout scrollAreaWrapperWidgetLayout;
     QImage brushPreview;
     QLabel brushPreviewWrapper;
-    ColorPicker colorPicker;
     ColorPickerWidget colorPickerWidget;
     SliderWidget smoothnessSlider;
 };

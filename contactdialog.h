@@ -9,22 +9,28 @@
 
 class ContactDialog : public QDialog {
 public:
-	explicit ContactDialog(QWidget* const parent = nullptr);
-	~ContactDialog(){}
+	static ContactDialog& GetInstance() {
+		printf("GetInstance\n");
+		static ContactDialog instance;
+		return instance;
+	}
 protected:
 	class ContactItem : public QWidget {
 	public:
-		explicit ContactItem(QImage image, QString text, const bool isLink = false, const bool isCopyable = false, QWidget* parent = nullptr);
+		explicit ContactItem(QImage image, QString text, QWidget* parent = nullptr, const bool isLink = false, const bool isCopyable = false);
 		~ContactItem(){}
 
 		void AddWidget(QWidget* widget);
 
-	private:
+	protected:
 		QHBoxLayout mainLayout;
 
 		QLabel icon;
 		QLabel label;
 	};
+
+	explicit ContactDialog(QWidget* const parent = nullptr);
+	~ContactDialog() {}
 
 	void paintEvent(QPaintEvent* paintEvent) override;
 

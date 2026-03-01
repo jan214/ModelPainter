@@ -20,6 +20,8 @@ closeButton("Ok"){
     setWindowFlags(Qt::Popup);
     mainLayout.setSpacing(0);
 
+    setFixedWidth(278);
+
     // color wheel calculations
     for(int x = 0; x < 256; x++){
         for(int y = 0; y < 256; y++){
@@ -67,18 +69,23 @@ closeButton("Ok"){
     connect(&closeButton, &QPushButton::clicked, this, &QDialog::close);
 }
 
-void ColorPicker::Initialize(int red, int green, int blue){
-    redSlider.OnSliderValueChanged(red);
-    greenSlider.OnSliderValueChanged(green);
-    blueSlider.OnSliderValueChanged(blue);
-}
-
 bool ColorPicker::eventFilter(QObject* object, QEvent* event){
     if(object == &colorPaletteWrapper){
         if(event->type() == QEvent::MouseMove){
             if(QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event)){
                 if(mouseEvent->buttons() == Qt::LeftButton){
                     const QPoint mousePosition = mouseEvent->pos();
+
+                    if (!colorPaletteImage.rect().contains(mousePosition)) {
+                        return true;
+                    }
+
+#ifdef __EMSCRIPTEN__
+                    if (!rect().contains(mousePosition)) {
+                        close();
+                    }
+#endif
+
                     QColor selectedPixelColor = colorPaletteImage.pixelColor(mousePosition.x(), mousePosition.y());
                     printf("event on color picker: %i %i %i\n", selectedPixelColor.red(), selectedPixelColor.green(), selectedPixelColor.blue());
                     if(selectedPixelColor.alpha() == 0){
@@ -113,8 +120,7 @@ ColorPickerWidget::ColorPickerWidget(QString text, ColorPicker& colorPicker, QWi
 QWidget(parent),
 mainLayout(this),
 colorPickerLabel(text),
-colorPickerColor(),
-colorPicker(colorPicker){
+colorPickerColor(){
     colorPickerLabel.setObjectName("NameLabel");
     mainLayout.addWidget(&colorPickerLabel);
     mainLayout.addWidget(&colorPickerColor);
@@ -127,8 +133,16 @@ colorPicker(colorPicker){
 
     connect(&colorPickerColor, &QPushButton::pressed, [this, &colorPicker](){
         QPoint globalSpawnPosition = colorPickerColor.mapToGlobal(colorPickerColor.rect().topLeft());
-        const QColor pickerColor = colorPickerColor.palette().color(QPalette::Normal, QPalette::Button);
-        colorPicker.Initialize(pickerColor.red(), pickerColor.green(), pickerColor.blue());
+
+        const QRect screenRect = QGuiApplication::primaryScreen()->availableGeometry();
+        const int colorPickerRightEdge = globalSpawnPosition.x() + colorPicker.rect().width();
+        const int rightEdgeDistance = screenRect.right() - colorPickerRightEdge;
+        if (rightEdgeDistance < 0) {
+            globalSpawnPosition.setX(globalSpawnPosition.x() + rightEdgeDistance);
+        }
+        
+        // needed for initialize for a different ColorPickerWidget
+        //const QColor pickerColor = colorPickerColor.palette().color(QPalette::Normal, QPalette::Button);
         colorPicker.move(globalSpawnPosition);
         colorPicker.open();
     });
@@ -147,12 +161,13 @@ void ColorPickerWidget::SetPickerColor(const QColor newColor){
 SliderWidget::SliderWidget(QString text, QWidget* parent, double minimum, double maximum, double value) :
 QWidget(parent),
 mainLayout(this),
-sliderLabel(text),
+sliderLabel(text, this),
 slider(),
 sliderSpinbox(),
 minimum(minimum),
 maximum(maximum),
-value(value){
+value(value),
+spinboxDrag({}) {
     mainLayout.setSpacing(0);
     sliderLabel.setObjectName("NameLabel");
     mainLayout.addWidget(&sliderLabel);
@@ -162,11 +177,18 @@ value(value){
     mainLayout.addWidget(&slider);
     connect(&slider, &QSlider::valueChanged, this, &SliderWidget::OnSliderValueChanged);
 
+    sliderSpinbox.setMinimumWidth(48);
     sliderSpinbox.setRange(minimum, maximum);
     sliderSpinbox.setValue(minimum);
     sliderSpinbox.setSingleStep((maximum-minimum)*0.1);
     mainLayout.addWidget(&sliderSpinbox);
     connect(&sliderSpinbox, &QDoubleSpinBox::valueChanged, this, &SliderWidget::OnSpinboxValueChanged);
+
+    spinboxDrag.lineEdit = sliderSpinbox.findChild<QLineEdit*>();
+    if (spinboxDrag.lineEdit != nullptr) {
+        spinboxDrag.lineEdit->setMouseTracking(true);
+        spinboxDrag.lineEdit->installEventFilter(this);
+    }
 }
 
 SliderWidget::~SliderWidget(){
@@ -208,15 +230,62 @@ void SliderWidget::GetLongestNameplateWidth(QWidget* widgets[], const int size){
     }
 }
 
+bool SliderWidget::eventFilter(QObject* object, QEvent* event) {
+    if (spinboxDrag.lineEdit != nullptr && object == spinboxDrag.lineEdit) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            printf("sliderSpinbox MouseButtonPress\n");
+            spinboxDrag.mouseDown = true;
+            if (QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event)) {
+                spinboxDrag.mousePosition = mouseEvent->pos();
+            }
+        } else if (spinboxDrag.mouseDown && event->type() == QEvent::MouseMove) {
+            if (QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event)) {
+                const QPoint mousePosition = mouseEvent->pos();
+                const QPoint delta = mousePosition - spinboxDrag.mousePosition;
+                if (spinboxDrag.mouseDown || delta.manhattanLength() > 5) {
+                    // delta.y() down is 1, so reverse it
+                    const int deltay = -delta.y();
+                    if (mouseEvent->modifiers() & Qt::ShiftModifier) {
+                        sliderSpinbox.setValue(sliderSpinbox.value() + (deltay * sliderSpinbox.singleStep()) / 10);
+                    } else {
+                        sliderSpinbox.setValue(sliderSpinbox.value() + deltay * sliderSpinbox.singleStep());
+                    }
+                    
+                    spinboxDrag.mousePosition = mousePosition;
+                }
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            spinboxDrag.mouseDown = false;
+        }
+    }
+
+    return QWidget::eventFilter(object, event);
+}
+
+void SliderWidget::resizeEvent(QResizeEvent* resizeEvent) {
+    const int labelSpinboxWidth = sliderLabel.width() + sliderSpinbox.minimumWidth();
+    const int sliderWidth = width() - labelSpinboxWidth;
+    
+    if (250 < sliderWidth) {
+        slider.setVisible(true);
+    } else {
+        slider.setVisible(false);
+    }
+
+    QWidget::resizeEvent(resizeEvent);
+}
+
 BrushWidget::BrushWidget(QWidget* parent) :
 QWidget(parent),
-mainLayout(),
+mainLayout(this),
+scrollArea(this),
+scrollAreaWrapperWidget(&scrollArea),
+scrollAreaWrapperWidgetLayout(&scrollAreaWrapperWidget),
 brushPreview(128,128, QImage::Format_RGBA8888),
 brushPreviewWrapper(this),
-colorPicker(this),
-colorPickerWidget("Color", colorPicker, this),
+colorPickerWidget("Color", ColorPicker::GetInstance(), this),
 smoothnessSlider("Smoothness", this, 0.1){
-    setLayout(&mainLayout);
+    const ColorPicker& colorPicker = ColorPicker::GetInstance();
 
     brushPreview.fill(Qt::transparent);
     QPainter painter(&brushPreview);
@@ -229,16 +298,20 @@ smoothnessSlider("Smoothness", this, 0.1){
     painter.drawEllipse(0.0, 0.0, brushPreview.width(), brushPreview.height());
 
     brushPreviewWrapper.setPixmap(QPixmap::fromImage(brushPreview));
-    mainLayout.addWidget(&brushPreviewWrapper);
+    scrollAreaWrapperWidgetLayout.addWidget(&brushPreviewWrapper);
     connect(&colorPicker, &ColorPicker::colorChanged, this, &BrushWidget::onColorChanged);
 
-    mainLayout.addWidget(&colorPickerWidget);
+    scrollAreaWrapperWidgetLayout.addWidget(&colorPickerWidget);
 
-    mainLayout.addWidget(&smoothnessSlider);
+    scrollAreaWrapperWidgetLayout.addWidget(&smoothnessSlider);
     connect(&smoothnessSlider, &SliderWidget::changedValue, this, &BrushWidget::onValueChanged);
 
     QWidget* widgets[2] = { &colorPickerWidget, &smoothnessSlider };
     SliderWidget::GetLongestNameplateWidth(widgets, 2);
+
+    scrollArea.setWidgetResizable(true);
+    scrollArea.setWidget(&scrollAreaWrapperWidget);
+    mainLayout.addWidget(&scrollArea);
 }
 
 void BrushWidget::onValueChanged(double value, double maximum){
