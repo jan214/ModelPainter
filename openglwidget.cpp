@@ -157,9 +157,11 @@ hitPoint(0.0f,0.0f,0.0f)
     transformMatrix[14] = 0.0f;
     transformMatrix[15] = 1.0f;
 
+#if _DEBUG
     errorList->AddError("Error: 1", ErrorList::MessageType::Error);
     errorList->AddError("Warning: 2", ErrorList::MessageType::Warning);
     errorList->AddError("Message: 3", ErrorList::MessageType::None);
+#endif
 
     printf("openGLWidget constructed\n");
 }
@@ -185,7 +187,7 @@ void OpenGLWidget::OnBrushChanged(const QImage& brushTexture){
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, brushColorTexture);
     const int brushTextureSize = 128;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, brushTexture.bits());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, brushTexture.bits());
 
     brushShader.ChangeUniform(1, nullptr, 1, GL_FALSE);
 }
@@ -317,7 +319,7 @@ void OpenGLWidget::initializeGL(){
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     const int brushTextureSize = 128;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
 
     brushShader.AddUniform(nullptr, 1, "brushColorTexture", GL_FALSE);
 
@@ -348,6 +350,7 @@ void OpenGLWidget::paintGL(){
         const float hitPointTemp[2] = {hitPoint.x(), hitPoint.y()};
         printf("OpenGLWidget::paintGL hitPointTemp: %f %f\n", hitPointTemp[0], hitPointTemp[1]);
         brushShader.ChangeUniform(0, &hitPointTemp[0], 2, GL_FALSE);
+        glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, brushColorTexture);
 
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -378,6 +381,7 @@ void OpenGLWidget::paintGL(){
     defaultShader.ChangeUniform(1, &perspectiveMatrix[0], 16, GL_FALSE);
     defaultShader.ChangeUniform(2, transformMat.data(), 16, GL_FALSE);
 
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, baseColorTexture);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -389,9 +393,14 @@ void OpenGLWidget::paintGL(){
 bool OpenGLWidget::event(QEvent* event){
     if(event->type() == QEvent::MouseButtonPress){
         QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event);
-        mousePosition[0] = 2.0f * (float)mouseEvent->pos().x()/viewWidth - 1.0f;
-        mousePosition[1] = 1.0f - 2.0f * (float)mouseEvent->pos().y()/viewHeight;
+        const float devicePixelRatioValue = (float)devicePixelRatioF();
+        mousePosition[0] = 2.0f * ((float)mouseEvent->pos().x()* devicePixelRatioValue)/viewWidth - 1.0f;
+        mousePosition[1] = 1.0f - 2.0f * ((float)mouseEvent->pos().y()* devicePixelRatioValue)/viewHeight;
 //        printf("mousePosition: %f %f\n", mousePosition[0], mousePosition[1]);
+
+#if _DEBUG
+        errorList->AddError(QString("mousePosition: %1 %2").arg(mousePosition[0]).arg(mousePosition[1]), ErrorList::None);
+#endif
 
         if(!(mouseEvent->modifiers() & Qt::ShiftModifier) && mouseEvent->buttons() == Qt::LeftButton){
 //            printf("ViewportSize: %i %i\n", width, height);
@@ -410,6 +419,7 @@ bool OpenGLWidget::event(QEvent* event){
                 // this needs quadtree optimization
                 raycast(&mousePosition[0], &triangleVertices[0],&triangleTextureCoordinates[0], hitPoint, distance);
             }
+
             update();
             emit DrawChanged();
         }else if(mouseEvent->buttons() == Qt::MiddleButton){
@@ -490,8 +500,9 @@ bool OpenGLWidget::event(QEvent* event){
                 emit DrawChanged();
             }
 
-            mousePosition[0] = 2.0f * (float)mouseEvent->pos().x()/viewWidth - 1.0f;
-            mousePosition[1] = 1.0f - 2.0f * (float)mouseEvent->pos().y()/viewHeight;
+            const float devicePixelRatioValue = (float)devicePixelRatioF();
+            mousePosition[0] = 2.0f * ((float)mouseEvent->pos().x() * devicePixelRatioValue) / viewWidth - 1.0f;
+            mousePosition[1] = 1.0f - 2.0f * ((float)mouseEvent->pos().y() * devicePixelRatioValue) / viewHeight;
             update();
 
             return true;
@@ -550,9 +561,9 @@ bool OpenGLWidget::event(QEvent* event){
 }
 
 void OpenGLWidget::resizeGL(int w, int h){
-    const float devicePixelRatio = qApp->devicePixelRatio();
-    viewWidth = w * devicePixelRatio;
-    viewHeight = h * devicePixelRatio;
+    const qreal devicePixelRatioValue = devicePixelRatio();
+    viewWidth = w * devicePixelRatioValue;
+    viewHeight = h * devicePixelRatioValue;
     glViewport(0, 0, viewWidth, viewHeight);
 
     aspectScale = viewWidth/viewHeight;

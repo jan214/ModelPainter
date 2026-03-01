@@ -14,13 +14,16 @@
 #include "graphicsview.h"
 #include "shader.h"
 #include "brushwidget.h"
+#include "contactdialog.h"
 
 int main(int argc, char **argv)
 {
     setbuf(stdout, NULL);
 
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL, true);
-//    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
+#ifndef __EMSCRIPTEN__
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
+#endif
 
     QSurfaceFormat defaultFormat;
     defaultFormat.setVersion(3,0);
@@ -50,9 +53,9 @@ int main(int argc, char **argv)
     QAction* const testAction = fileMenu->addAction("something");
     QObject::connect(testAction, &QAction::triggered, [](){printf("test\n");});
 
-    QMenu* contactMenu = window.menuBar()->addMenu("Contact");
-    QAction* const testAction2 = contactMenu->addAction("something");
-    QObject::connect(testAction2, &QAction::triggered, [](){printf("test\n");});
+    QMenu* helpMenu = window.menuBar()->addMenu("Help");
+    QAction* const testAction2 = helpMenu->addAction("Contact");
+    QObject::connect(testAction2, &QAction::triggered, []() { ContactDialog::GetInstance().show(); });
 
     // this line needs to be moved once this architecture is better
     GLuint baseColorTexture;
