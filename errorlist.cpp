@@ -28,6 +28,14 @@ void ErrorList::AddError(QString errorText, MessageType type){
     item->setData(Qt::UserRole + 1, QVariant((uint)type));
     item->setIcon(messageIcon);
     addItem(item);
+
+    if (count() > 100) {
+        if (QListWidgetItem* firstItem = takeItem(0)) {
+            delete firstItem;
+        }
+    }
+
+    scrollToBottom();
 }
 
 ErrorList::ErrorListWidgetItemDelegate::ErrorListWidgetItemDelegate(QWidget* const parent) :

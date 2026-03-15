@@ -4,6 +4,7 @@
 #include <QClipboard>
 #include <QPainter>
 #include <QPainterPath>
+#include <QScreen>
 
 ContactDialog::ContactItem::ContactItem(QImage image, QString text, QWidget* parent, const bool isLink, const bool isCopyable) :
 QWidget(parent),
@@ -44,10 +45,10 @@ mainLayout(this),
 closeButton("Close", this){
 	setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
 	setAttribute(Qt::WA_TranslucentBackground);
-
-	if (parent != nullptr) {
-        setFixedWidth(parent->width() / 3);
-    }
+	mainLayout.setSizeConstraint(QLayout::SetFixedSize);
+	const QRect screenRect = QGuiApplication::primaryScreen()->availableGeometry();
+	const QPoint spawnPosition = QPoint(screenRect.width() / 2, screenRect.height() / 2);
+	move(spawnPosition);
 
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
 
@@ -59,11 +60,11 @@ closeButton("Close", this){
     ContactItem* nameItem = new ContactItem(testPixmap.toImage(), "Jan Moritz", this);
 	mainLayout.addWidget(nameItem);
 
-    ContactItem* websiteItem = new ContactItem(testPixmap.toImage(), "<a href='https://jan214.github.io'>jan214.github.io</a>", this, /*isLink*/ true, /*isCopyable*/ false);
+	ContactItem* websiteItem = new ContactItem(testPixmap.toImage(), "<a href='https://jan214.github.io'>jan214.github.io</a>", this, /*isLink*/ true, /*isCopyable*/ false);
 	mainLayout.addWidget(websiteItem);
 
 	const QString emailAddress("janmoritz@hotmail.de");
-    ContactItem* emailAddressItem = new ContactItem(testPixmap.toImage(), emailAddress, this, /*isLink*/ false, /*isCopyable*/ true);
+	ContactItem* emailAddressItem = new ContactItem(testPixmap.toImage(), emailAddress, this, /*isLink*/ false, /*isCopyable*/ true);
 	QPushButton* copyButton = new QPushButton(QIcon::fromTheme("edit-copy"), "", emailAddressItem);
 	copyButton->setObjectName("CopyButton");
 	copyButton->setFixedSize(QSize(websiteItem->height(), websiteItem->height()));
@@ -84,6 +85,8 @@ closeButton("Close", this){
 }
 
 void ContactDialog::paintEvent(QPaintEvent* paintEvent) {
+	QDialog::paintEvent(paintEvent);
+
 	QPainter painter(this);
 	painter.setRenderHint(QPainter::Antialiasing);
 
