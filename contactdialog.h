@@ -9,8 +9,7 @@
 
 class ContactDialog : public QDialog {
 public:
-	static ContactDialog& GetInstance() {
-		printf("GetInstance\n");
+    static ContactDialog& GetInstance() {
 		static ContactDialog instance;
 		return instance;
 	}

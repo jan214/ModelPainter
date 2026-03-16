@@ -27,3 +27,6 @@ HEADERS += \
     openglwidget.h \
     shader.h \
     contactdialog.h
+
+RESOURCES += \
+    Resources.qrc

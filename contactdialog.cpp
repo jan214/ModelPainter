@@ -47,7 +47,7 @@ closeButton("Close", this){
 	setAttribute(Qt::WA_TranslucentBackground);
 	mainLayout.setSizeConstraint(QLayout::SetFixedSize);
 	const QRect screenRect = QGuiApplication::primaryScreen()->availableGeometry();
-	const QPoint spawnPosition = QPoint(screenRect.width() / 2, screenRect.height() / 2);
+    const QPoint spawnPosition = QPoint(screenRect.width() / 2, screenRect.height() / 2);
 	move(spawnPosition);
 
     setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
@@ -57,14 +57,20 @@ closeButton("Close", this){
 
 	QPixmap testPixmap = QIcon::fromTheme("edit-copy").pixmap(QSize(16, 16));
 
-    ContactItem* nameItem = new ContactItem(testPixmap.toImage(), "Jan Moritz", this);
+    QImage contactIcon(":/icons/contact.png");
+    QImage aboutMeIcon(":/icons/aboutme.png");
+    QImage homeIcon(":/icons/home.png");
+
+    const int iconSize = 16;
+
+    ContactItem* nameItem = new ContactItem(aboutMeIcon.scaled(iconSize,iconSize,Qt::KeepAspectRatio,Qt::SmoothTransformation), "Jan Moritz", this);
 	mainLayout.addWidget(nameItem);
 
-	ContactItem* websiteItem = new ContactItem(testPixmap.toImage(), "<a href='https://jan214.github.io'>jan214.github.io</a>", this, /*isLink*/ true, /*isCopyable*/ false);
+    ContactItem* websiteItem = new ContactItem(homeIcon.scaled(iconSize,iconSize,Qt::KeepAspectRatio,Qt::SmoothTransformation), "<a href='https://jan214.github.io'>jan214.github.io</a>", this, /*isLink*/ true, /*isCopyable*/ false);
 	mainLayout.addWidget(websiteItem);
 
 	const QString emailAddress("janmoritz@hotmail.de");
-	ContactItem* emailAddressItem = new ContactItem(testPixmap.toImage(), emailAddress, this, /*isLink*/ false, /*isCopyable*/ true);
+    ContactItem* emailAddressItem = new ContactItem(contactIcon.scaled(iconSize,iconSize,Qt::KeepAspectRatio,Qt::SmoothTransformation), emailAddress, this, /*isLink*/ false, /*isCopyable*/ true);
 	QPushButton* copyButton = new QPushButton(QIcon::fromTheme("edit-copy"), "", emailAddressItem);
 	copyButton->setObjectName("CopyButton");
 	copyButton->setFixedSize(QSize(websiteItem->height(), websiteItem->height()));
