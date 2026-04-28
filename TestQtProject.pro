@@ -16,7 +16,8 @@ SOURCES += \
     main.cpp \
     openglwidget.cpp \
     shader.cpp \
-    contactdialog.cpp
+    contactdialog.cpp \
+    modelloader.cpp
 
 HEADERS += \
     brushwidget.h \
@@ -26,4 +27,5 @@ HEADERS += \
     graphicsview.h \
     openglwidget.h \
     shader.h \
-    contactdialog.h
+    contactdialog.h \
+    modelloader.h

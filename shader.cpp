@@ -15,6 +15,8 @@ void Shader::InitializeGLFunctions(QOpenGLContext* context){
     if(context == nullptr || context->surface() == nullptr)
         return;
 
+    context = context;
+
     context->makeCurrent(context->surface());
     initializeOpenGLFunctions();
     printf("Shader initialized GL function\n");
@@ -80,15 +82,17 @@ void Shader::AddAttribute(const float* values, const int size, const char* name,
     GLuint newBuffer;
     glGenBuffers(1, &newBuffer);
     glBindBuffer(GL_ARRAY_BUFFER, newBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*size, &values[0], GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float)*size, &values[0], GL_DYNAMIC_DRAW);
 
     const GLuint attributeLocation = glGetAttribLocation(programIndex, name);
-    glVertexAttribPointer(attributeLocation, stride, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(attributeLocation, stride, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glEnableVertexAttribArray(attributeLocation);
 
     glBindVertexArray(0);
 
-    printf("AddAttribute\n");
+    printf("AddAttribute: %s %i\n", name, newBuffer);
+
+    attributes.push_back(newBuffer);
 }
 
 void Shader::AddUniform(const float* values, const int size, const char* name, const GLboolean transpose){
@@ -106,6 +110,31 @@ void Shader::AddUniform(const float* values, const int size, const char* name, c
 
     uniforms.push_back(uniformLocation);
     printf("AddUniform\n");
+}
+
+void Shader::ChangeAttribute(const int buffer, const float* values, const int size, const char* name, const int stride) {
+    if (size == 0) {
+        GLint location = glGetAttribLocation(programIndex, name);
+
+        glDisableVertexAttribArray(location);
+        glVertexAttrib2f(location, 0.0f, 0.0f);
+        return;
+    }
+
+    const GLuint bufferIndex = attributes[buffer];
+
+    BindVAO();
+
+    glBindBuffer(GL_ARRAY_BUFFER, bufferIndex);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * size, &values[0], GL_DYNAMIC_DRAW);
+
+    const GLuint attributeLocation = glGetAttribLocation(programIndex, name);
+    glVertexAttribPointer(attributeLocation, stride, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    glEnableVertexAttribArray(attributeLocation);
+
+    glBindVertexArray(0);
+
+    printf("ChangeAttribute: %s %i\n", name, bufferIndex);
 }
 
 void Shader::ChangeUniform(const int index, const float* values, const int size, const GLboolean transpose){

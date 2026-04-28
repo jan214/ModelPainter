@@ -28,7 +28,9 @@ set(SOURCES
         brushwidget.cpp
         brushwidget.h
         contactdialog.cpp
-        contactdialog.h)
+        contactdialog.h
+        modelloader.h
+        modelloader.cpp)
 
 qt_add_executable(ModelPainter ${SOURCES})
 

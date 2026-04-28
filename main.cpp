@@ -8,6 +8,8 @@
 #include <QObject>
 #include <QSlider>
 #include <QMenuBar>
+#include <QFileDialog>
+#include <QTextStream>
 
 #include "openglwidget.h"
 #include "dockwidget.h"
@@ -15,6 +17,7 @@
 #include "shader.h"
 #include "brushwidget.h"
 #include "contactdialog.h"
+#include "modelloader.h"
 
 int main(int argc, char **argv)
 {
@@ -50,8 +53,18 @@ int main(int argc, char **argv)
     window.resize(screen->size().width() * relationWindowSize, screen->size().height() * relationWindowSize);
 
     QMenu* fileMenu = window.menuBar()->addMenu("File");
-    QAction* const testAction = fileMenu->addAction("something");
-    QObject::connect(testAction, &QAction::triggered, [](){printf("test\n");});
+    QAction* const testAction = fileMenu->addAction("Load Model...");
+    QObject::connect(testAction, &QAction::triggered, [&window]() {
+        auto fileContentReady = [](const QString& fileName, const QByteArray& fileContent) {
+            if (!fileName.isEmpty()) {
+                QString objText = QString::fromUtf8(fileContent);
+                QTextStream objTextStream(&objText);
+                ModelLoader::GetInstance().LoadModel(objTextStream);
+            }
+        };
+
+        QFileDialog::getOpenFileContent("Model Files(*.obj *.fbx);; All Files(*)", fileContentReady, &window);
+    });
 
     QMenu* helpMenu = window.menuBar()->addMenu("Help");
     QAction* const testAction2 = helpMenu->addAction("Contact");

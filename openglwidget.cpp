@@ -7,7 +7,11 @@
 #include <QGesture>
 #include <QMatrix4x4>
 
+#include <QMimeData>
+#include <QFile>
+
 #include "errorlist.h"
+#include "modelloader.h"
 
 OpenGLWidget::OpenGLWidget(GLuint& baseColorTexture, QWidget* const parent) :
 QOpenGLWidget(parent),
@@ -124,7 +128,13 @@ cubeTextureCoordinates{0.0001f, 0.3334f,
                        0.6666f, 0.3336f,
                        0.9999f, 0.3336f,
                        0.9999f, 0.6669f},
-hitPoint(0.0f,0.0f,0.0f)
+hitPoint(0.0f,0.0f,0.0f),
+modelLoader(ModelLoader::GetInstance()),
+modelChanged(false),
+//customModelVertices(),
+modelSize(36)/*,*/
+//customModelTextureCoordinates(),
+//customModelNormals()
 {
     setAttribute(Qt::WA_AlwaysStackOnTop, false);
     setAttribute(Qt::WA_AcceptTouchEvents, true);
@@ -218,15 +228,16 @@ void OpenGLWidget::initializeGL(){
                                        "void main(){\n"
                                             "vec4 color = texture(baseColorTexture, oTextureCoordinates);\n"
                                             "fragColor = color;\n"
+                                            //"fragColor = vec4(1.0,0.0,0.0,1.0);\n"
                                        "}";
 
     defaultShader.InitializeGLFunctions(context());
     defaultShader.CreateProgram(vertexShaderSource, fragmentShaderSource);
     defaultShader.UseProgram();
-//    defaultShader.AddAttribute(&triangle[0], 9, "iPosition", 3);
+    //defaultShader.AddAttribute(&triangle[0], 9, "iPosition", 3);
     defaultShader.AddAttribute(&cubeVertices[0], 108, "iPosition", 3);
 
-//    defaultShader.AddAttribute(&triangleTextureCoordinates[0], 6, "iTextureCoordinates", 2);
+    //defaultShader.AddAttribute(&triangleTextureCoordinates[0], 6, "iTextureCoordinates", 2);
     defaultShader.AddAttribute(&cubeTextureCoordinates[0], 72, "iTextureCoordinates", 2);
 
     glGenTextures(1, &baseColorTexture);
@@ -340,6 +351,7 @@ void OpenGLWidget::paintGL(){
     printf("paintGL: %s\n", mouseDown ? "true" : "false");
 
     if(mouseDown){
+        printf("============== mouseDown ===============\n");
         glViewport(0, 0, 512, 512);
         glBindFramebuffer(GL_FRAMEBUFFER, backFramebuffer);
         glEnable(GL_BLEND);
@@ -366,13 +378,24 @@ void OpenGLWidget::paintGL(){
     glViewport(0, 0, viewWidth, viewHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
 
+    if (modelLoader.ModelChanged) {
+        defaultShader.ChangeAttribute(0, modelLoader.GetVertices(), modelLoader.GetVerticesSize(), "iPosition", 3);
+        defaultShader.ChangeAttribute(1, modelLoader.GetTextureCoordinates(), modelLoader.GetTextureCoordinatesSize(), "iTextureCoordinates", 2);
+        modelLoader.ModelChanged = false;
+        printf("modelSize: %i\n", modelLoader.ModelSize);
+    }
+
+    printf("----------------------\n");
+    defaultShader.BindVAO();
     defaultShader.UseProgram();
     glClearColor(0.0f,1.0f,0.0f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-
-    defaultShader.BindVAO();
 
     QMatrix4x4 perspectiveMat(&perspectiveMatrix[0]);
     QMatrix4x4 viewMat(&transformMatrix[0]);
@@ -383,7 +406,13 @@ void OpenGLWidget::paintGL(){
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, baseColorTexture);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    if (modelLoader.ModelSize == 0) {
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+    } else {
+        glDrawArrays(GL_TRIANGLES, 0, modelLoader.ModelSize);
+    }
+    //glDrawArraysInstanced(GL_TRIANGLES, 0, modelSize, 1);
 
     glDisable(GL_CULL_FACE);
     glBindTexture(GL_TEXTURE_2D, 0);
@@ -409,15 +438,33 @@ bool OpenGLWidget::event(QEvent* event){
             mouseDown = true;
             float distance = 99999999.9f;
 //            raycast(&mousePosition[0], &triangle[0], &triangleTextureCoordinates[0], hitPoint);
-            for(int i = 0; i < 12; i++){
-                const float triangleVertices[9] = {cubeVertices[i*9],cubeVertices[i*9+1],cubeVertices[i*9+2],
-                                                   cubeVertices[i*9+3],cubeVertices[i*9+4],cubeVertices[i*9+5],
-                                                   cubeVertices[i*9+6],cubeVertices[i*9+7],cubeVertices[i*9+8]};
-                const float triangleTextureCoordinates[6] = {cubeTextureCoordinates[i*6],cubeTextureCoordinates[i*6+1],
-                                                             cubeTextureCoordinates[i*6+2],cubeTextureCoordinates[i*6+3],
-                                                             cubeTextureCoordinates[i*6+4],cubeTextureCoordinates[i*6+5]};
-                // this needs quadtree optimization
-                raycast(&mousePosition[0], &triangleVertices[0],&triangleTextureCoordinates[0], hitPoint, distance);
+            if (modelLoader.GetVerticesSize() == 0) {
+                for (int i = 0; i < 4; i++) {
+                    const float triangleVertices[9] = { cubeVertices[i * 9],cubeVertices[i * 9 + 1],cubeVertices[i * 9 + 2],
+                                                       cubeVertices[i * 9 + 3],cubeVertices[i * 9 + 4],cubeVertices[i * 9 + 5],
+                                                       cubeVertices[i * 9 + 6],cubeVertices[i * 9 + 7],cubeVertices[i * 9 + 8] };
+                    const float triangleTextureCoordinates[6] = { cubeTextureCoordinates[i * 6],cubeTextureCoordinates[i * 6 + 1],
+                                                                 cubeTextureCoordinates[i * 6 + 2],cubeTextureCoordinates[i * 6 + 3],
+                                                                 cubeTextureCoordinates[i * 6 + 4],cubeTextureCoordinates[i * 6 + 5] };
+                    // this needs quadtree optimization
+                    OpenGLWidget::raycast(&mousePosition[0], &triangleVertices[0], &triangleTextureCoordinates[0], hitPoint, distance);
+                }
+            } else {
+                if (modelLoader.GetTextureCoordinatesSize() == 0) {
+                    return true;
+                }
+
+                // the size needs to be fixed I loop over multiple vertices at once
+                for (int counter = 0; counter < modelLoader.ModelSize/3; counter++) {
+                    const float triangleVertices[9] = { modelLoader.GetVertices()[counter * 9],modelLoader.GetVertices()[counter * 9 + 1],modelLoader.GetVertices()[counter * 9 + 2],
+                                                        modelLoader.GetVertices()[counter * 9 + 3],modelLoader.GetVertices()[counter * 9 + 4],modelLoader.GetVertices()[counter * 9 + 5],
+                                                        modelLoader.GetVertices()[counter * 9 + 6] ,modelLoader.GetVertices()[counter * 9 + 7] ,modelLoader.GetVertices()[counter * 9 + 8] };
+
+                    const float triangleTextureCoordinates[6] = { modelLoader.GetTextureCoordinates()[counter * 6], modelLoader.GetTextureCoordinates()[counter * 6 + 1],modelLoader.GetTextureCoordinates()[counter * 6 + 2],
+                                                                    modelLoader.GetTextureCoordinates()[counter * 6 + 3],modelLoader.GetTextureCoordinates()[counter * 6 + 4],modelLoader.GetTextureCoordinates()[counter * 6 + 5] };
+
+                    OpenGLWidget::raycast(&mousePosition[0], &triangleVertices[0], &triangleTextureCoordinates[0], hitPoint, distance);
+                }
             }
 
             update();
@@ -486,16 +533,35 @@ bool OpenGLWidget::event(QEvent* event){
                 mouseDown = true;
                 float distance = 999999999.9f;
 //                raycast(&mousePosition[0], &triangle[0], &triangleTextureCoordinates[0], hitPoint);
-                for(int i = 0; i < 12; i++){
-                    const float triangleVertices[9] = {cubeVertices[i*9],cubeVertices[i*9+1],cubeVertices[i*9+2],
-                                                       cubeVertices[i*9+3],cubeVertices[i*9+4],cubeVertices[i*9+5],
-                                                       cubeVertices[i*9+6],cubeVertices[i*9+7],cubeVertices[i*9+8]};
-                    const float triangleTextureCoordinates[6] = {cubeTextureCoordinates[i*6],cubeTextureCoordinates[i*6+1],
-                                                                 cubeTextureCoordinates[i*6+2],cubeTextureCoordinates[i*6+3],
-                                                                 cubeTextureCoordinates[i*6+4],cubeTextureCoordinates[i*6+5]};
-                    // this needs quadtree optimization
-                    raycast(&mousePosition[0], &triangleVertices[0],&triangleTextureCoordinates[0], hitPoint, distance);
+                if (modelLoader.GetVerticesSize() == 0) {
+                    for (int i = 0; i < 4; i++) {
+                        const float triangleVertices[9] = { cubeVertices[i * 9],cubeVertices[i * 9 + 1],cubeVertices[i * 9 + 2],
+                                                           cubeVertices[i * 9 + 3],cubeVertices[i * 9 + 4],cubeVertices[i * 9 + 5],
+                                                           cubeVertices[i * 9 + 6],cubeVertices[i * 9 + 7],cubeVertices[i * 9 + 8] };
+                        const float triangleTextureCoordinates[6] = { cubeTextureCoordinates[i * 6],cubeTextureCoordinates[i * 6 + 1],
+                                                                     cubeTextureCoordinates[i * 6 + 2],cubeTextureCoordinates[i * 6 + 3],
+                                                                     cubeTextureCoordinates[i * 6 + 4],cubeTextureCoordinates[i * 6 + 5] };
+                        // this needs quadtree optimization
+                        OpenGLWidget::raycast(&mousePosition[0], &triangleVertices[0], &triangleTextureCoordinates[0], hitPoint, distance);
+                    }
+                } else {
+                    if (modelLoader.GetTextureCoordinatesSize() == 0) {
+                        return true;
+                    }
+
+                    // this needs to be fixed I loop over multiple vertices at once
+                    for (int counter = 0; counter < modelLoader.ModelSize/3; counter++) {
+                        const float triangleVertices[9] = { modelLoader.GetVertices()[counter * 9],modelLoader.GetVertices()[counter * 9 + 1],modelLoader.GetVertices()[counter * 9 + 2],
+                                                            modelLoader.GetVertices()[counter * 9 + 3],modelLoader.GetVertices()[counter * 9 + 4],modelLoader.GetVertices()[counter * 9 + 5],
+                                                            modelLoader.GetVertices()[counter * 9 + 6] ,modelLoader.GetVertices()[counter * 9 + 7] ,modelLoader.GetVertices()[counter * 9 + 8] };
+
+                        const float triangleTextureCoordinates[6] = { modelLoader.GetTextureCoordinates()[counter * 6], modelLoader.GetTextureCoordinates()[counter * 6 + 1],modelLoader.GetTextureCoordinates()[counter * 6 + 2],
+                                                                        modelLoader.GetTextureCoordinates()[counter * 6 + 3],modelLoader.GetTextureCoordinates()[counter * 6 + 4],modelLoader.GetTextureCoordinates()[counter * 6 + 5] };
+
+                        OpenGLWidget::raycast(&mousePosition[0], &triangleVertices[0], &triangleTextureCoordinates[0], hitPoint, distance);
+                    }
                 }
+
                 update();
                 emit DrawChanged();
             }
@@ -598,6 +664,13 @@ void OpenGLWidget::resizeGL(int w, int h){
 
 void OpenGLWidget::dragEnterEvent(QDragEnterEvent* event){
     printf("drag enter event\n");
+    if (event->mimeData()->hasUrls()) {
+        event->acceptProposedAction();
+    }
+}
+
+void OpenGLWidget::dragMoveEvent(QDragMoveEvent* event) {
+    printf("drag move event\n");
 
     event->acceptProposedAction();
 }
@@ -606,6 +679,44 @@ void OpenGLWidget::dropEvent(QDropEvent* event){
     printf("drop Event\n");
 
     event->acceptProposedAction();
+
+    const QMimeData* mimeData = event->mimeData();
+
+    if (mimeData != nullptr && mimeData->hasUrls()) {
+        printf("has Urls\n");
+        event->acceptProposedAction();
+        const QList<QUrl> mimeDataUrls = mimeData->urls();
+        
+#if defined(__EMSCRIPTEN__)
+        const QString localFileName = QString("/qt/tmp/%1").arg(mimeDataUrls.at(0).fileName());
+#else
+        const QString localFileName = mimeDataUrls.at(0).toLocalFile();
+#endif
+        // use localFileName.toUtf8().data() if debug project configuration crashes from localFileName.toStdString().c_str()
+        printf("url: %s\n", localFileName.toStdString().c_str());
+        QFile modelFile(localFileName);
+        if (!modelFile.open(QIODevice::ReadOnly | QIODevice::Text))
+            return;
+
+        printf("file is open\n");
+
+        //customModelVertices.clear();
+
+        std::vector<float> vertices;
+        std::vector<float> textureCoordinates;
+        std::vector<float> normals;
+
+        std::vector<int> indices;
+        std::vector<int> texturesIndices;
+        std::vector<int> normalsIndices;
+
+        QTextStream modelFileText(&modelFile);
+
+        ModelLoader::GetInstance().LoadModel(modelFileText);
+
+        modelChanged = true;
+        update();
+    }
 }
 
 void OpenGLWidget::wheelEvent(QWheelEvent* event){
@@ -615,7 +726,7 @@ void OpenGLWidget::wheelEvent(QWheelEvent* event){
 
         distance -= 0.5f;
     }else{
-        if(distance > 10.0f)
+        if(distance > 100.0f)
             return;
 
         distance += 0.5f;
@@ -628,7 +739,7 @@ void OpenGLWidget::wheelEvent(QWheelEvent* event){
     QVector3D viewPos(viewPosition[0], viewPosition[1], viewPosition[2]);
     QVector3D forwardDirection(-viewPosition[0], -viewPosition[1], -viewPosition[2]);
     forwardDirection.normalize();
-    QVector3D worldUp(0.0f,1.0f,0.0f);
+    QVector3D worldUp(0.0f, 1.0f, 0.0f);
     QVector3D rightDirection(QVector3D::crossProduct(forwardDirection, worldUp));
     rightDirection.normalize();
     QVector3D upDirection(QVector3D::crossProduct(rightDirection, forwardDirection));
@@ -636,15 +747,15 @@ void OpenGLWidget::wheelEvent(QWheelEvent* event){
     printf("viewPosition: %f %f %f\n", viewPosition[0], viewPosition[1], viewPosition[2]);
 
     transformMatrix[0] = rightDirection.x();
-    transformMatrix[1] = upDirection.x();
-    transformMatrix[2] = -forwardDirection.x();
+    transformMatrix[1] = rightDirection.y();
+    transformMatrix[2] = rightDirection.z();
     transformMatrix[3] = -QVector3D::dotProduct(rightDirection, viewPos);
-    transformMatrix[4] = rightDirection.y();
+    transformMatrix[4] = upDirection.x();
     transformMatrix[5] = upDirection.y();
-    transformMatrix[6] = -forwardDirection.y();
+    transformMatrix[6] = upDirection.z();
     transformMatrix[7] = -QVector3D::dotProduct(upDirection, viewPos);
-    transformMatrix[8] = rightDirection.z();
-    transformMatrix[9] = upDirection.z();
+    transformMatrix[8] = -forwardDirection.x();
+    transformMatrix[9] = -forwardDirection.y();
     transformMatrix[10] = -forwardDirection.z();
     transformMatrix[11] = QVector3D::dotProduct(forwardDirection, viewPos);
     transformMatrix[12] = 0.0f;

@@ -44,6 +44,7 @@ protected:
 
     virtual bool event(QEvent* event) override;
     virtual void dragEnterEvent(QDragEnterEvent* event) override;
+    virtual void dragMoveEvent(QDragMoveEvent* event) override;
     virtual void dropEvent(QDropEvent* event) override;
 
     void wheelEvent(QWheelEvent* event) override;
@@ -89,6 +90,14 @@ protected:
 
     const float cubeVertices[108];
     const float cubeTextureCoordinates[72];
+
+    class ModelLoader& modelLoader;
+
+    bool modelChanged;
+    //std::vector<float> customModelVertices;
+    int modelSize;
+    //std::vector<float> customModelTextureCoordinates;
+    //std::vector<float> customModelNormals;
 
     QVector3D hitPoint;
 };
