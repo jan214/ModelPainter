@@ -10,5 +10,5 @@ ModelPainter for loading 3d model files and paint on them.
  |Linux|⚠️|
  |MacOS|⚠️|
  |Google Chrone|✅|
- |Mozilla Firefox|⚠️(deactivate ANGLE)|
+ |Mozilla Firefox|✅(deactivate ANGLE)|
  |Mobile Mozilla Firefox|✅|
