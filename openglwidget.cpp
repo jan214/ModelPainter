@@ -143,6 +143,8 @@ modelSize(36)/*,*/
 
     setAcceptDrops(true);
 
+    modelLoader.Subscribe([&]() { update(); });
+
     if(layout() != nullptr)
     {
         layout()->addWidget(errorList);
@@ -407,11 +409,7 @@ void OpenGLWidget::paintGL(){
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, baseColorTexture);
 
-    if (modelLoader.ModelSize == 0) {
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-    } else {
-        glDrawArrays(GL_TRIANGLES, 0, modelLoader.ModelSize);
-    }
+    glDrawArrays(GL_TRIANGLES, 0, modelLoader.ModelSize);
     //glDrawArraysInstanced(GL_TRIANGLES, 0, modelSize, 1);
 
     glDisable(GL_CULL_FACE);
@@ -436,7 +434,7 @@ bool OpenGLWidget::event(QEvent* event){
 //            printf("MouseButtonPress: %i %i\n", mouseEvent->pos().x(), mouseEvent->pos().y());
 
             mouseDown = true;
-            float distance = 99999999.9f;
+            float distance = std::numeric_limits<float>().infinity();
 //            raycast(&mousePosition[0], &triangle[0], &triangleTextureCoordinates[0], hitPoint);
             if (modelLoader.GetVerticesSize() == 0) {
                 for (int i = 0; i < 4; i++) {
@@ -531,7 +529,7 @@ bool OpenGLWidget::event(QEvent* event){
 //                printf("moveDirection: %f %f - %f\n", moveDirection[0], mousex, mousePosition[0]);
             }else if(!(mouseEvent->modifiers() & Qt::ShiftModifier) && mouseEvent->buttons() == Qt::LeftButton){
                 mouseDown = true;
-                float distance = 999999999.9f;
+                float distance = std::numeric_limits<float>().infinity();
 //                raycast(&mousePosition[0], &triangle[0], &triangleTextureCoordinates[0], hitPoint);
                 if (modelLoader.GetVerticesSize() == 0) {
                     for (int i = 0; i < 4; i++) {

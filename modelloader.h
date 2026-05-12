@@ -32,6 +32,8 @@ public:
 	inline float* GetTextureCoordinates() { return customModelTextureCoordinates.data(); }
 	inline int GetTextureCoordinatesSize() { return customModelTextureCoordinates.size(); }
 
+	void Subscribe(std::function<void()> onUpdate);
+
 	int ModelSize;
 	bool ModelChanged;
 protected:
@@ -50,6 +52,8 @@ protected:
 
 	std::vector<int> normalsIndices;
 	std::vector<float> normals;
+
+	std::vector<std::function<void()>> updateFunctions;
 };
 
 #endif // MODELLOADER_H

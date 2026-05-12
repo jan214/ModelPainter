@@ -1,5 +1,6 @@
 #include "modelloader.h"
 
+#include <QWidget>
 #include <QStringList>
 
 void ModelLoader::LoadModel(QTextStream& modelFileText) {
@@ -247,10 +248,18 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
     ModelSize = GetVerticesSize() / 3;
 
     printf("customModelVerticesSize: %i\n", customModelVertices.size());
+
+    for (std::function<void()> updateFunction : updateFunctions) {
+        updateFunction();
+    }
+}
+
+void ModelLoader::Subscribe(std::function<void()> onUpdate) {
+    updateFunctions.push_back(onUpdate);
 }
 
 ModelLoader::ModelLoader() :
-ModelSize(6),
+ModelSize(36),
 ModelChanged(false),
 customModelVertices(),
 customModelTextureCoordinates(),

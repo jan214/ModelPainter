@@ -20,6 +20,8 @@ modelLoader(ModelLoader::GetInstance())
 
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
     setViewport(openGLWidget);
+
+    modelLoader.Subscribe([&]() {  viewport()->update(); });
 }
 
 void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
@@ -33,9 +35,10 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
     painter->setPen(pen);
     painter->drawText(10,10,"Test");
 
-    pen.setWidth(0.1f);
+    pen.setWidth(0);
 
     if (openGLWidget != nullptr) {
+        printf("update DrawForeground\n");
         const float width = openGLWidget->ViewWidth;
         const float height = openGLWidget->ViewHeight;
         if (modelLoader.GetTextureCoordinatesSize() > 0) {
