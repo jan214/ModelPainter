@@ -49,9 +49,12 @@ protected:
 
     void wheelEvent(QWheelEvent* event) override;
 
-    bool raycast(float* mousePosition, const float* triangle, const float* triangleTextureCoordinates, QVector3D& outHitPoint, float& distance);
+    bool raycast(float mousePosition[2], const float* const mins, const float* const maxs, float& distance);
+    bool raycast(float mousePosition[2], const float triangle[9], const float triangleTextureCoordinates[6], QVector3D& outHitPoint, float& distance);
 
+#if defined(__EMSCRIPTEN__)
     QPushButton settingsButton;
+#endif
 
     Shader defaultShader;
     GLuint baseColorTextureSampler;
