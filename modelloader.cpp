@@ -3,7 +3,325 @@
 #include <QWidget>
 #include <QStringList>
 
+#include <algorithm>
+#include <stack>
+
+BvhTree::BvhTree() :
+rootNode(),
+nodes{} {
+
+}
+
+BvhTree::~BvhTree() {
+
+}
+
+void BvhTree::Initialize(std::vector<float>& modelData) {
+    Node& rootNode = ModelLoader::GetInstance().bvhTree.rootNode;
+
+    for (int counter = 0; counter < modelData.size(); counter += 9) {
+        const float triangle[9] = { modelData[counter], modelData[counter + 1],modelData[counter + 2],
+                                    modelData[counter+3], modelData[counter + 4],modelData[counter + 5],
+                                    modelData[counter+6], modelData[counter + 7],modelData[counter + 8] };
+        rootNode.Insert(counter / 9, triangle);
+    }
+
+    //printf("rootNodeSize: %f %f %f %f %f %f\n", rootNode.mins[0], rootNode.maxs[0], rootNode.mins[1], rootNode.maxs[1], rootNode.mins[2], rootNode.maxs[2]);
+
+    rootNode.Sort(modelData);
+}
+
+void BvhTree::Initialize1(std::vector<float>& modelData) {
+    std::vector<int> nodeIndexStack;
+    nodeIndexStack.push_back(0);
+    const int triangleCount = modelData.size() / 9;
+    nodes.reserve(triangleCount);
+    nodes.push_back({});
+    nodes[0].selfIndex = 0;
+
+    while (!nodeIndexStack.empty()) {
+        const int index = nodeIndexStack.back();
+        nodeIndexStack.pop_back();
+
+        nodes[index].Insert1(modelData, nodes, nodeIndexStack);
+    }
+}
+
+void BvhTree::Clear() {
+    rootNode.indices.clear();
+
+    rootNode.mins[0] = 0.0f;
+    rootNode.mins[1] = 0.0f;
+    rootNode.mins[2] = 0.0f;
+    rootNode.maxs[0] = 0.0f;
+    rootNode.maxs[1] = 0.0f;
+    rootNode.maxs[2] = 0.0f;
+
+    if (const Node* const leftNode = rootNode.left) {
+        delete leftNode;
+        rootNode.left = nullptr;
+    }
+    if (const Node* const rightNode = rootNode.right) {
+        delete rightNode;
+        rootNode.right = nullptr;
+    }
+}
+
+BvhTree::Node::Node() :
+mins{ 0.0f },
+maxs{ 0.0f },
+left(nullptr),
+right(nullptr),
+selfIndex(-1),
+leftIndex(-1),
+rightIndex(-1),
+indices{} {
+
+}
+
+BvhTree::Node::~Node() {
+    delete left;
+    delete right;
+}
+
+void BvhTree::Node::Insert1(std::vector<float>& modelData, std::vector<Node>& nodes, std::vector<int>& nodeIndexStack) {
+    if (selfIndex == 0) {
+        const int modelDataSize = modelData.size();
+        for (int index = 0; index < modelDataSize; index += 9) {
+            const float triangle[9] = { modelData[index], modelData[index + 1],modelData[index + 2],
+                                        modelData[index + 3],modelData[index + 4],modelData[index + 5],
+                                        modelData[index + 6],modelData[index + 7],modelData[index + 8] };
+
+            for (int counter = 0; counter < 3; counter++) {
+                if (triangle[counter * 3] < mins[0]) {
+                    mins[0] = triangle[counter * 3];
+                }
+                
+                if (triangle[counter * 3] > maxs[0]) {
+                    maxs[0] = triangle[counter * 3];
+                }
+
+                if (triangle[counter * 3 + 1] < mins[1]) {
+                    mins[1] = triangle[counter * 3 + 1];
+                }
+                
+                if (triangle[counter * 3 + 1] > maxs[1]) {
+                    maxs[1] = triangle[counter * 3 + 1];
+                }
+
+                if (triangle[counter * 3 + 2] < mins[2]) {
+                    mins[2] = triangle[counter * 3 + 2];
+                }
+                
+                if (triangle[counter * 3 + 2] > maxs[2]) {
+                    maxs[2] = triangle[counter * 3 + 2];
+                }
+            }
+
+            indices.emplace_back(index / 9);
+        }
+    } else {
+        for (const int& index : indices) {
+            const float triangle[9] = { modelData[index * 9], modelData[index * 9 + 1],modelData[index * 9 + 2],
+                                        modelData[index * 9 + 3],modelData[index * 9 + 4],modelData[index * 9 + 5],
+                                        modelData[index * 9 + 6],modelData[index * 9 + 7],modelData[index * 9 + 8] };
+
+            for (int counter = 0; counter < 3; counter++) {
+                if (triangle[counter * 3] < mins[0]) {
+                    mins[0] = triangle[counter * 3];
+                }
+
+                if (triangle[counter * 3] > maxs[0]) {
+                    maxs[0] = triangle[counter * 3];
+                }
+
+                if (triangle[counter * 3 + 1] < mins[1]) {
+                    mins[1] = triangle[counter * 3 + 1];
+                }
+
+                if (triangle[counter * 3 + 1] > maxs[1]) {
+                    maxs[1] = triangle[counter * 3 + 1];
+                }
+
+                if (triangle[counter * 3 + 2] < mins[2]) {
+                    mins[2] = triangle[counter * 3 + 2];
+                }
+
+                if (triangle[counter * 3 + 2] > maxs[2]) {
+                    maxs[2] = triangle[counter * 3 + 2];
+                }
+            }
+        }
+    }
+
+    //printf("mins: %f %f %f maxs: %f %f %f\n", mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
+    
+    if (indices.size() < 2)
+        return;
+
+    const int cutAxis = (maxs[0] - mins[0]) > (maxs[1] - mins[1]) ? 0 : (maxs[1] - mins[1] > maxs[2] - mins[2] ? 1 : 2);
+    //printf("cutAxis: %i\n", cutAxis);
+
+    std::sort(indices.begin(), indices.end(), [&modelData, &cutAxis](const int lhs, const int rhs) {
+        const float triangles[9] = { modelData[lhs * 9], modelData[lhs * 9 + 1], modelData[lhs * 9 + 2],
+                        modelData[lhs * 9 + 3], modelData[lhs * 9 + 4], modelData[lhs * 9 + 5],
+                        modelData[lhs * 9 + 6], modelData[lhs * 9 + 7], modelData[lhs * 9 + 8] };
+
+        const float center[3] = {(triangles[0] + triangles[3] + triangles[6]) / 3.0f,
+                            (triangles[1] + triangles[4] + triangles[7]) / 3.0f,
+                            (triangles[2] + triangles[5] + triangles[8]) / 3.0f };
+
+        const float triangles2[9] = { modelData[rhs * 9], modelData[rhs * 9 + 1], modelData[rhs * 9 + 2],
+                modelData[rhs * 9 + 3], modelData[rhs * 9 + 4], modelData[rhs * 9 + 5],
+                modelData[rhs * 9 + 6], modelData[rhs * 9 + 7], modelData[rhs * 9 + 8] };
+
+        const float center2[3] = { (triangles2[0] + triangles2[3] + triangles2[6]) / 3.0f,
+                    (triangles2[1] + triangles2[4] + triangles2[7]) / 3.0f,
+                    (triangles2[2] + triangles2[5] + triangles2[8]) / 3.0f };
+
+        return center[cutAxis] < center2[cutAxis];
+    });
+
+    const int indicesSize = indices.size();
+    const int halfSize = indicesSize / 2;
+
+    if (leftIndex == -1) {
+        leftIndex = nodes.size();
+        nodeIndexStack.push_back(leftIndex);
+        nodes.emplace_back();
+        nodes[leftIndex].indices.reserve(halfSize);
+    }
+
+    if (rightIndex == -1) {
+        rightIndex = nodes.size();
+        nodeIndexStack.push_back(rightIndex);
+        nodes.emplace_back();
+        nodes[rightIndex].indices.reserve(halfSize);
+    }
+
+    for (int index = 0; index < indicesSize; index++) {
+        const int indice = indices[index];
+
+        if (index < halfSize) {
+            nodes[leftIndex].indices.emplace_back(indice);
+            continue;
+        }
+
+        nodes[rightIndex].indices.emplace_back(indice);
+    }
+}
+
+void BvhTree::Node::Insert(const int index, const float triangle[9]) {
+    for (int counter = 0; counter < 3; counter++) {
+        if (triangle[counter*3] < mins[0]) {
+            mins[0] = triangle[counter * 3];
+        } else if (triangle[counter*3] > maxs[0]) {
+            maxs[0] = triangle[counter * 3];
+        }
+
+        if (triangle[counter*3+1] < mins[1]) {
+            mins[1] = triangle[counter * 3 + 1];
+        } else if (triangle[counter*3+1] > maxs[1]) {
+            maxs[1] = triangle[counter * 3 + 1];
+        }
+
+        if (triangle[counter*3+2] < mins[2]) {
+            mins[2] = triangle[counter * 3 + 2];
+        } else if (triangle[counter*3+2] > maxs[2]) {
+            maxs[2] = triangle[counter * 3 + 2];
+        }
+    }
+
+    indices.push_back(index);
+}
+
+void BvhTree::Node::Sort1() {
+
+}
+
+void BvhTree::Node::Sort(std::vector<float>& modelData) {
+    //printf("index:");
+    //for (const int& index : indices) {
+    //    printf("%i,", index);
+    //}
+    //printf("\n");
+
+    //printf("mins: %f %f %f maxs: %f %f %f\n", mins[0], mins[1], mins[2], maxs[0], maxs[1], maxs[2]);
+
+    if (indices.size() <= 2) {
+        //printf("index:\n");
+        //for (const int& index : indices) {
+        //    printf("%i,", index);
+        //    printf(" triangle1: %f %f %f/%f %f %f/%f %f %f\n", modelData[index * 9], modelData[index * 9 + 1], modelData[index * 9 + 2], modelData[index * 9 + 3], modelData[index * 9 + 4], modelData[index * 9 + 5], modelData[index * 9 + 6], modelData[index * 9 + 7], modelData[index * 9 + 8]);
+        //}
+        //printf("\n");
+        return;
+    }
+
+    const int cutAxis = (maxs[0] - mins[0]) > (maxs[1] - mins[1]) ? 0 : (maxs[1] - mins[1] > maxs[2] - mins[2] ? 1 : 2);
+    //printf("cutAxis: %i\n", cutAxis);
+
+    std::sort(indices.begin(), indices.end(), [&modelData, &cutAxis](const int lhs, const int rhs) {
+        const float triangles[9] = { modelData[lhs * 9], modelData[lhs * 9 + 1], modelData[lhs * 9 + 2],
+                       modelData[lhs * 9 + 3], modelData[lhs * 9 + 4], modelData[lhs * 9 + 5],
+                        modelData[lhs * 9 + 6], modelData[lhs * 9 + 7], modelData[lhs * 9 + 8] };
+
+        const float center[3] = { (triangles[0] + triangles[3] + triangles[6]) / 3.0f,
+                            (triangles[1] + triangles[4] + triangles[7]) / 3.0f,
+                            (triangles[2] + triangles[5] + triangles[8]) / 3.0f };
+
+        const float triangles2[9] = { modelData[rhs * 9], modelData[rhs * 9 + 1], modelData[rhs * 9 + 2],
+               modelData[rhs * 9 + 3], modelData[rhs * 9 + 4], modelData[rhs * 9 + 5],
+                modelData[rhs * 9 + 6], modelData[rhs * 9 + 7], modelData[rhs * 9 + 8] };
+
+        const float center2[3] = { (triangles2[0] + triangles2[3] + triangles2[6]) / 3.0f,
+                    (triangles2[1] + triangles2[4] + triangles2[7]) / 3.0f,
+                    (triangles2[2] + triangles2[5] + triangles2[8]) / 3.0f };
+
+        return center[cutAxis] < center2[cutAxis];
+    });
+
+    //printf("cutAxis: %i\n", cutAxis);
+
+    const int indicesSize = indices.size();
+    const int halfSize = indicesSize / 2;
+    //printf("halfSize: %i\n", halfSize);
+    for (int index = 0; index < indicesSize; index++) {
+        const float triangles[9] = { modelData[indices[index] * 9], modelData[indices[index] * 9 + 1], modelData[indices[index] * 9 + 2],
+                       modelData[indices[index] * 9 + 3], modelData[indices[index] * 9 + 4], modelData[indices[index] * 9 + 5],
+                        modelData[indices[index] * 9 + 6], modelData[indices[index] * 9 + 7], modelData[indices[index] * 9 + 8] };
+
+        //printf("x:%f y:%f z:%f/x:%f y:%f z:%f/x:%f y:%f z:%f\n", triangles[0], triangles[1], triangles[2], triangles[3], triangles[4], triangles[5], triangles[6], triangles[7], triangles[8]);
+
+        if (index < halfSize) {
+            if (left == nullptr) {
+                left = new Node();
+            }
+            left->Insert(indices[index], triangles);
+            continue;
+        }
+
+        if (right == nullptr) {
+            right = new Node();
+        }
+        right->Insert(indices[index], triangles);
+    }
+
+    if (left != nullptr) {
+        //printf("left size: x: %f %f y: %f %f z: %f %f\n", mins[0], maxs[0], mins[1], maxs[1], mins[2], maxs[2]);
+        //printf("left\n");
+        left->Sort(modelData);
+    }
+    if (right != nullptr) {
+        //printf("right size: x: %f %f y: %f %f z: %f %f\n", mins[0], maxs[0], mins[1], maxs[1], mins[2], maxs[2]);
+        //printf("right\n");
+        right->Sort(modelData);
+    }
+}
+
 void ModelLoader::LoadModel(QTextStream& modelFileText) {
+    bvhTree.Clear();
+
     customModelVertices.clear();
     customModelTextureCoordinates.clear();
     customModelNormals.clear();
@@ -247,7 +565,10 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
     ModelChanged = true;
     ModelSize = GetVerticesSize() / 3;
 
-    printf("customModelVerticesSize: %i\n", customModelVertices.size());
+    bvhTree.Initialize(customModelVertices);
+    //bvhTree.Initialize1(customModelVertices);
+
+    printf("customModelVerticesSize: %zi\n", customModelVertices.size());
 
     for (std::function<void()> updateFunction : updateFunctions) {
         updateFunction();
@@ -261,6 +582,7 @@ void ModelLoader::Subscribe(std::function<void()> onUpdate) {
 ModelLoader::ModelLoader() :
 ModelSize(36),
 ModelChanged(false),
+bvhTree(),
 customModelVertices(),
 customModelTextureCoordinates(),
 customModelNormals(),
@@ -269,6 +591,7 @@ vertices(),
 texturesIndices(),
 textureCoordinates(),
 normalsIndices(),
-normals() {
+normals(),
+updateFunctions(){
 
 }

@@ -2,9 +2,47 @@
 #define MODELLOADER_H
 
 #include <vector>
+#include <stack>
 
 #include <QString>
 #include <QTextStream>
+
+class BvhTree {
+public:
+	struct Node {
+	public:
+		Node();
+		~Node();
+
+		void Insert(const int index, const float triangle[9]);
+		void Sort(std::vector<float>& modelData);
+		void Sort1();
+		void Insert1(std::vector<float>& modelData, std::vector<Node>& nodes, std::vector<int>& nodeIndexStack);
+
+		float mins[3];
+		float maxs[3];
+
+		struct Node* left;
+		struct Node* right;
+
+		int selfIndex;
+		int leftIndex;
+		int rightIndex;
+
+		std::vector<int> indices;
+	};
+
+	BvhTree();
+	~BvhTree();
+
+	void Initialize(std::vector<float>& modelData);
+	void Initialize1(std::vector<float>& modelData);
+
+	void Clear();
+
+	Node rootNode;
+	std::vector<Node> nodes;
+};
 
 struct Mesh {
 	QString name;
@@ -36,6 +74,8 @@ public:
 
 	int ModelSize;
 	bool ModelChanged;
+
+	BvhTree bvhTree;
 protected:
 	ModelLoader();
 	~ModelLoader(){}
