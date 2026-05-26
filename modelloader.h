@@ -16,7 +16,6 @@ public:
 
 		void Insert(const int index, const float triangle[9]);
 		void Sort(std::vector<float>& modelData);
-		void Sort1();
 		void Insert1(std::vector<float>& modelData, std::vector<Node>& nodes, std::vector<int>& nodeIndexStack);
 
 		float mins[3];
@@ -37,8 +36,6 @@ public:
 
 	void Initialize(std::vector<float>& modelData);
 	void Initialize1(std::vector<float>& modelData);
-
-	void Clear();
 
 	Node rootNode;
 	std::vector<Node> nodes;
@@ -75,7 +72,7 @@ public:
 	int ModelSize;
 	bool ModelChanged;
 
-	BvhTree bvhTree;
+	std::shared_ptr<BvhTree> bvhTree;
 protected:
 	ModelLoader();
 	~ModelLoader(){}
