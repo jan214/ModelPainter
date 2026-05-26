@@ -485,7 +485,7 @@ bool OpenGLWidget::event(QEvent* event){
 
                 std::stack<BvhTree::Node*> nodeStack;
                 std::vector<BvhTree::Node*> finalNodeVector;
-                nodeStack.push(&modelLoader.bvhTree.rootNode);
+                nodeStack.push(&modelLoader.bvhTree->rootNode);
                 float distance = std::numeric_limits<float>().infinity();
                 while (!nodeStack.empty()) {
                     BvhTree::Node* node = nodeStack.top();
@@ -651,7 +651,7 @@ bool OpenGLWidget::event(QEvent* event){
                     BvhTree::Node* node = nullptr;
                     std::stack<BvhTree::Node*> nodeStack;
                     std::vector<BvhTree::Node*> finalNodeVector;
-                    nodeStack.push(&modelLoader.bvhTree.rootNode);
+                    nodeStack.push(&modelLoader.bvhTree->rootNode);
                     float distance = std::numeric_limits<float>().infinity();
                     while (!nodeStack.empty()) {
                         node = nodeStack.top();

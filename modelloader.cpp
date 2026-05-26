@@ -17,7 +17,7 @@ BvhTree::~BvhTree() {
 }
 
 void BvhTree::Initialize(std::vector<float>& modelData) {
-    Node& rootNode = ModelLoader::GetInstance().bvhTree.rootNode;
+    Node& rootNode = ModelLoader::GetInstance().bvhTree->rootNode;
 
     for (int counter = 0; counter < modelData.size(); counter += 9) {
         const float triangle[9] = { modelData[counter], modelData[counter + 1],modelData[counter + 2],
@@ -44,26 +44,6 @@ void BvhTree::Initialize1(std::vector<float>& modelData) {
         nodeIndexStack.pop_back();
 
         nodes[index].Insert1(modelData, nodes, nodeIndexStack);
-    }
-}
-
-void BvhTree::Clear() {
-    rootNode.indices.clear();
-
-    rootNode.mins[0] = 0.0f;
-    rootNode.mins[1] = 0.0f;
-    rootNode.mins[2] = 0.0f;
-    rootNode.maxs[0] = 0.0f;
-    rootNode.maxs[1] = 0.0f;
-    rootNode.maxs[2] = 0.0f;
-
-    if (const Node* const leftNode = rootNode.left) {
-        delete leftNode;
-        rootNode.left = nullptr;
-    }
-    if (const Node* const rightNode = rootNode.right) {
-        delete rightNode;
-        rootNode.right = nullptr;
     }
 }
 
@@ -235,10 +215,6 @@ void BvhTree::Node::Insert(const int index, const float triangle[9]) {
     indices.push_back(index);
 }
 
-void BvhTree::Node::Sort1() {
-
-}
-
 void BvhTree::Node::Sort(std::vector<float>& modelData) {
     //printf("index:");
     //for (const int& index : indices) {
@@ -320,7 +296,9 @@ void BvhTree::Node::Sort(std::vector<float>& modelData) {
 }
 
 void ModelLoader::LoadModel(QTextStream& modelFileText) {
-    bvhTree.Clear();
+    if (bvhTree != nullptr) {
+        bvhTree.reset();
+    }
 
     customModelVertices.clear();
     customModelTextureCoordinates.clear();
@@ -380,7 +358,6 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
             int vertexIndices[4] = { -1, -1, -1, -1 };
             int textureIndices[4] = { -1, -1, -1, -1 };
             int normalIndices[4] = { -1, -1, -1, -1 };
-            int counter = 0;
             for (const QString& string : lineStringList) {
                 //printf("lineStringList: %s\n", string.toStdString().c_str());
                 if (string.startsWith("f"))
@@ -424,7 +401,6 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
                         }
                     }
                 }
-                counter++;
                 //printf("vertexIndices: %i %i %i %i\n", vertexIndices[0], vertexIndices[1], vertexIndices[2], vertexIndices[3]);
                 //printf("textureIndices: %i %i %i %i\n", textureIndices[0], textureIndices[1], textureIndices[2], textureIndices[3]);
                 //printf("==========================\n");
@@ -565,8 +541,10 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
     ModelChanged = true;
     ModelSize = GetVerticesSize() / 3;
 
-    bvhTree.Initialize(customModelVertices);
-    //bvhTree.Initialize1(customModelVertices);
+    if (bvhTree = std::make_shared<BvhTree>()) {
+        bvhTree->Initialize(customModelVertices);
+        //bvhTree.Initialize1(customModelVertices);
+    }
 
     printf("customModelVerticesSize: %zi\n", customModelVertices.size());
 
@@ -582,7 +560,7 @@ void ModelLoader::Subscribe(std::function<void()> onUpdate) {
 ModelLoader::ModelLoader() :
 ModelSize(36),
 ModelChanged(false),
-bvhTree(),
+bvhTree(nullptr),
 customModelVertices(),
 customModelTextureCoordinates(),
 customModelNormals(),
