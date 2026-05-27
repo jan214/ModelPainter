@@ -61,6 +61,8 @@ protected:
     ViewportOpenGLWidget* openGLWidget;
 
     qreal currentScale;
+
+    class ModelLoader& modelLoader;
 };
 
 #endif // GRAPHICSVIEW_H
