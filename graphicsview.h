@@ -69,6 +69,8 @@ protected:
 
     GraphicsScene* graphicsScene;
     ViewportOpenGLWidget* openGLWidget;
+
+    class ModelLoader& modelLoader;
 };
 
 #endif // GRAPHICSVIEW_H

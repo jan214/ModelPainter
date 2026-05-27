@@ -2,15 +2,17 @@
 
 #include <QToolButton>
 #include <QOpenGLFunctions>
+#include <QPainterPath>
+
+#include "modelloader.h"
 
 GraphicsView::GraphicsView(GLuint &baseColorTexture, QWidget * const parent) :
 QGraphicsView(parent),
 drawTextureShader(),
 baseColorTexture(baseColorTexture),
 graphicsScene(new GraphicsScene(this)),
-openGLWidget(new ViewportOpenGLWidget(drawTextureShader, baseColorTexture, QMatrix4x4(transform()), this))/*,
-currentScale(1.0)*/
-{
+openGLWidget(new ViewportOpenGLWidget(drawTextureShader, baseColorTexture, QMatrix4x4(transform()), this)),
+modelLoader(ModelLoader::GetInstance()){
     QToolButton settingsButton(this);
     setScene(graphicsScene);
 
@@ -22,6 +24,8 @@ currentScale(1.0)*/
     viewport()->installEventFilter(this);
 
     connect(this, &GraphicsView::TransformChanged, openGLWidget, &ViewportOpenGLWidget::OnTransformChanged);
+
+    modelLoader.Subscribe([&]() {  viewport()->update(); });
 }
 
 void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
@@ -34,6 +38,35 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
     QPen pen(Qt::black);
     painter->setPen(pen);
     painter->drawText(10,10,"Test");
+
+    pen.setWidth(0);
+
+    if (openGLWidget != nullptr) {
+        printf("update DrawForeground\n");
+        const float width = openGLWidget->ViewWidth;
+        const float height = openGLWidget->ViewHeight;
+        if (modelLoader.GetTextureCoordinatesSize() > 0) {
+            QPainterPath path;
+            for (int counter = 0; counter < modelLoader.GetTextureCoordinatesSize(); counter+=2) {
+                if (counter == 0) {
+                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * width, height - modelLoader.GetTextureCoordinates()[counter + 1] * height);
+                    path.moveTo(point);
+                    continue;
+                }
+                if (counter % 6 == 0) {
+                    const QPointF oldPoint(modelLoader.GetTextureCoordinates()[counter - 6] * width, height - modelLoader.GetTextureCoordinates()[counter - 6 + 1] * height);
+                    path.lineTo(oldPoint);
+                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * width, height - modelLoader.GetTextureCoordinates()[counter + 1] * height);
+                    path.moveTo(point);
+                    continue;
+                }
+                const QPointF point(modelLoader.GetTextureCoordinates()[counter] * width, height - modelLoader.GetTextureCoordinates()[counter + 1] * height);
+                path.lineTo(point);
+            }
+
+            painter->drawPath(path);
+        }
+    }
 
     painter->restore();
 }
