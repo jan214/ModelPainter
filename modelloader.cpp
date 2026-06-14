@@ -48,8 +48,8 @@ void BvhTree::Initialize1(std::vector<float>& modelData) {
 }
 
 BvhTree::Node::Node() :
-mins{ 0.0f },
-maxs{ 0.0f },
+mins{ std::numeric_limits<float>().infinity(),std::numeric_limits<float>().infinity(),std::numeric_limits<float>().infinity() },
+maxs{ -std::numeric_limits<float>().infinity(),-std::numeric_limits<float>().infinity(),-std::numeric_limits<float>().infinity() },
 left(nullptr),
 right(nullptr),
 selfIndex(-1),
