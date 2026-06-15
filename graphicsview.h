@@ -69,6 +69,10 @@ protected:
 
     GraphicsScene* graphicsScene;
     ViewportOpenGLWidget* openGLWidget;
+
+    qreal currentScale;
+
+    class ModelLoader& modelLoader;
 };
 
 #endif // GRAPHICSVIEW_H

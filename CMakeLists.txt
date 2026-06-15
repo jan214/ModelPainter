@@ -13,21 +13,40 @@ qt_standard_project_setup()
 
 set(SOURCES
         main.cpp
-	dockwidget.cpp
+	    dockwidget.cpp
         dockwidget.h
-	graphicsscene.cpp
+	    graphicsscene.cpp
         graphicsscene.h
-	graphicsview.cpp
+	    graphicsview.cpp
         graphicsview.h
-	openglwidget.cpp
+	    openglwidget.cpp
         openglwidget.h
         errorlist.cpp
-	errorlist.h
+	    errorlist.h
         shader.cpp
-	shader.h
+	    shader.h
         brushwidget.cpp
-        brushwidget.h)
+        brushwidget.h
+        contactdialog.cpp
+        contactdialog.h
+        modelloader.h
+        modelloader.cpp)
 
 qt_add_executable(ModelPainter ${SOURCES})
 
+set_target_properties(ModelPainter PROPERTIES
+    WIN32 "$<CONFIG:Release>"
+)
+
 target_link_libraries(ModelPainter PRIVATE Qt6::Core Qt6::Widgets Qt6::Gui Qt6::OpenGL Qt6::OpenGLWidgets)
+
+install(TARGETS ModelPainter 
+    RUNTIME DESTINATION bin
+)
+
+qt_generate_deploy_app_script(
+    TARGET ModelPainter
+    OUTPUT_SCRIPT deploy_script
+)
+
+install(SCRIPT ${deploy_script})

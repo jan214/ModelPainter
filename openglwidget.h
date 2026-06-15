@@ -44,13 +44,17 @@ protected:
 
     virtual bool event(QEvent* event) override;
     virtual void dragEnterEvent(QDragEnterEvent* event) override;
+    virtual void dragMoveEvent(QDragMoveEvent* event) override;
     virtual void dropEvent(QDropEvent* event) override;
 
     void wheelEvent(QWheelEvent* event) override;
 
-    bool raycast(float* mousePosition, const float* triangle, const float* triangleTextureCoordinates, QVector3D& outHitPoint, float& distance);
+    bool raycast(float mousePosition[2], const float* const mins, const float* const maxs, float& distance);
+    bool raycast(float mousePosition[2], const float triangle[9], const float triangleTextureCoordinates[6], QVector3D& outHitPoint, float& distance);
 
+#if defined(__EMSCRIPTEN__)
     QPushButton settingsButton;
+#endif
 
     Shader defaultShader;
     GLuint baseColorTextureSampler;
@@ -89,6 +93,14 @@ protected:
 
     const float cubeVertices[108];
     const float cubeTextureCoordinates[72];
+
+    class ModelLoader& modelLoader;
+
+    bool modelChanged;
+    //std::vector<float> customModelVertices;
+    int modelSize;
+    //std::vector<float> customModelTextureCoordinates;
+    //std::vector<float> customModelNormals;
 
     QVector3D hitPoint;
 };

@@ -8,19 +8,25 @@
 #include <QObject>
 #include <QSlider>
 #include <QMenuBar>
+#include <QFileDialog>
+#include <QTextStream>
 
 #include "openglwidget.h"
 #include "dockwidget.h"
 #include "graphicsview.h"
 #include "shader.h"
 #include "brushwidget.h"
+#include "contactdialog.h"
+#include "modelloader.h"
 
 int main(int argc, char **argv)
 {
     setbuf(stdout, NULL);
 
     QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL, true);
-//    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
+#ifndef __EMSCRIPTEN__
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
+#endif
 
     QSurfaceFormat defaultFormat;
     defaultFormat.setVersion(3,0);
@@ -46,13 +52,25 @@ int main(int argc, char **argv)
     const float relationWindowSize = 0.7f;
     window.resize(screen->size().width() * relationWindowSize, screen->size().height() * relationWindowSize);
 
+#ifndef __EMSCRIPTEN__
     QMenu* fileMenu = window.menuBar()->addMenu("File");
-    QAction* const testAction = fileMenu->addAction("something");
-    QObject::connect(testAction, &QAction::triggered, [](){printf("test\n");});
+    QAction* const testAction = fileMenu->addAction("Load Model...");
+    QObject::connect(testAction, &QAction::triggered, [&window]() {
+        auto fileContentReady = [](const QString& fileName, const QByteArray& fileContent) {
+            if (!fileName.isEmpty()) {
+                QString objText = QString::fromUtf8(fileContent);
+                QTextStream objTextStream(&objText);
+                ModelLoader::GetInstance().LoadModel(objTextStream);
+            }
+        };
 
-    QMenu* contactMenu = window.menuBar()->addMenu("Contact");
-    QAction* const testAction2 = contactMenu->addAction("something");
-    QObject::connect(testAction2, &QAction::triggered, [](){printf("test\n");});
+        QFileDialog::getOpenFileContent("Model Files(*.obj *.fbx);; All Files(*)", fileContentReady, &window);
+    });
+#endif
+
+    QMenu* helpMenu = window.menuBar()->addMenu("Help");
+    QAction* const testAction2 = helpMenu->addAction("Contact");
+    QObject::connect(testAction2, &QAction::triggered, []() { ContactDialog::GetInstance().show(); });
 
     // this line needs to be moved once this architecture is better
     GLuint baseColorTexture;
