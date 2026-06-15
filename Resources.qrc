@@ -3,5 +3,6 @@
         <file>icons/aboutme.png</file>
         <file>icons/contact.png</file>
         <file>icons/home.png</file>
+		<file>icons/QRCode.png</file>
     </qresource>
 </RCC>
