@@ -11,6 +11,8 @@ qt_standard_project_setup()
 #set(CMAKE_AUTOUIC ON)
 #set(CMAKE_AUTORCC ON)
 
+set(CMAKE_AUTORCC ON)
+
 set(SOURCES
         main.cpp
 	    dockwidget.cpp
@@ -30,7 +32,8 @@ set(SOURCES
         contactdialog.cpp
         contactdialog.h
         modelloader.h
-        modelloader.cpp)
+        modelloader.cpp
+        Resources.qrc)
 
 qt_add_executable(ModelPainter ${SOURCES})
 

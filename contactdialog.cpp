@@ -58,8 +58,22 @@ closeButton("Close", this){
 	QPixmap testPixmap = QIcon::fromTheme("edit-copy").pixmap(QSize(16, 16));
 
     QImage contactIcon(":/icons/contact.png");
+	if (contactIcon.isNull()) {
+		printf("contactIcon is null\n");
+	}
     QImage aboutMeIcon(":/icons/aboutme.png");
+	if (aboutMeIcon.isNull()) {
+		printf("aboutMeIcon is null\n");
+	}
     QImage homeIcon(":/icons/home.png");
+	if (homeIcon.isNull()) {
+		printf("homeIcon is null\n");
+	}
+
+	QImage qRCode(":/icons/QRCode.png");
+	if (qRCode.isNull()) {
+		printf("qRCode is null\n");
+	}
 
     const int iconSize = 16;
 
@@ -67,6 +81,14 @@ closeButton("Close", this){
 	mainLayout.addWidget(nameItem);
 
     ContactItem* websiteItem = new ContactItem(homeIcon.scaled(iconSize,iconSize,Qt::KeepAspectRatio,Qt::SmoothTransformation), "<a href='https://jan214.github.io'>jan214.github.io</a>", this, /*isLink*/ true, /*isCopyable*/ false);
+	QLabel* qRCodeWrapperLabel = new QLabel(websiteItem);
+	const int qRCodeSize = 64;
+	qRCodeWrapperLabel->setFixedSize(QSize(qRCodeSize, qRCodeSize));
+	qRCodeWrapperLabel->setPixmap(QPixmap::fromImage(qRCode.scaled(qRCodeSize,qRCodeSize,Qt::KeepAspectRatio,Qt::SmoothTransformation)));
+	qRCodeWrapperLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+	//qRCodeWrapperLabel->setAlignment(Qt::AlignCenter);
+	qRCodeWrapperLabel->setVisible(true);
+	websiteItem->AddWidget(qRCodeWrapperLabel);
 	mainLayout.addWidget(websiteItem);
 
 	const QString emailAddress("janmoritz@hotmail.de");
