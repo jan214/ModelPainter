@@ -29,3 +29,6 @@ HEADERS += \
     shader.h \
     contactdialog.h \
     modelloader.h
+
+RESOURCES += \
+    Resources.qrc
