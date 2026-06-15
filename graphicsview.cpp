@@ -13,8 +13,7 @@ baseColorTexture(baseColorTexture),
 graphicsScene(new GraphicsScene(this)),
 openGLWidget(new ViewportOpenGLWidget(drawTextureShader, baseColorTexture, QMatrix4x4(transform()), this)),
 currentScale(1.0),
-modelLoader(ModelLoader::GetInstance())
-{
+modelLoader(ModelLoader::GetInstance()){
     QToolButton settingsButton(this);
     setScene(graphicsScene);
 
