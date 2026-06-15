@@ -7,6 +7,8 @@
 #include <QOpenGLFunctions_3_0>
 #endif
 
+#include <QOpenGLContext>
+
 #if defined(__EMSCRIPTEN__)
 class Shader : protected QOpenGLFunctions{
 #else
@@ -23,6 +25,7 @@ public:
     void AddAttribute(const float* values, const int size, const char* name, const int stride);
     void AddUniform(const float* values, const int size, const char* name, const GLboolean transpose);
 
+    void ChangeAttribute(const int buffer, const float* values, const int size, const char* name, const int stride);
     void ChangeUniform(const int index, const float* values, const int size, const GLboolean transpose);
 
     void BindVAO();
@@ -30,11 +33,13 @@ public:
     bool IsReady;
 
 protected:
+    QOpenGLContext* context;
     GLuint programIndex;
     GLuint vertexShader;
     GLuint fragmentShader;
     GLuint vao;
 
+    std::vector<GLuint> attributes;
     std::vector<GLuint> uniforms;
 };
 
