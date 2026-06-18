@@ -6,7 +6,6 @@
 #include <QEvent>
 #include <QMouseEvent>
 #include <QStyleOption>
-#include <QGraphicsBlurEffect>
 
 ColorPicker::ColorPicker(QWidget* parent) :
 QDialog(parent),
