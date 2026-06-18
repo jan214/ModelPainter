@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QEvent>
 #include <QMouseEvent>
+#include <QStyleOption>
 
 ColorPicker::ColorPicker(QWidget* parent) :
 QDialog(parent),
@@ -162,6 +163,7 @@ SliderWidget::SliderWidget(QString text, QWidget* parent, double minimum, double
 QWidget(parent),
 mainLayout(this),
 sliderLabel(text, this),
+sliderProxyStyle(),
 slider(),
 sliderSpinbox(),
 minimum(minimum),
@@ -169,17 +171,19 @@ maximum(maximum),
 value(value),
 spinboxDrag({}) {
     mainLayout.setSpacing(0);
+    slider.setStyle(&sliderProxyStyle);
+
     sliderLabel.setObjectName("NameLabel");
     mainLayout.addWidget(&sliderLabel);
     slider.setOrientation(Qt::Horizontal);
     slider.setRange(0, 100);
-    slider.setValue(0);
+    slider.setValue(value * 100);
     mainLayout.addWidget(&slider);
     connect(&slider, &QSlider::valueChanged, this, &SliderWidget::OnSliderValueChanged);
 
     sliderSpinbox.setMinimumWidth(48);
     sliderSpinbox.setRange(minimum, maximum);
-    sliderSpinbox.setValue(minimum);
+    sliderSpinbox.setValue(value);
     sliderSpinbox.setSingleStep((maximum-minimum)*0.1);
     mainLayout.addWidget(&sliderSpinbox);
     connect(&sliderSpinbox, &QDoubleSpinBox::valueChanged, this, &SliderWidget::OnSpinboxValueChanged);
@@ -275,6 +279,111 @@ void SliderWidget::resizeEvent(QResizeEvent* resizeEvent) {
     QWidget::resizeEvent(resizeEvent);
 }
 
+SliderWidget::SliderProxyStyle::SliderProxyStyle(QStyle* style) : 
+QProxyStyle(){
+
+}
+
+SliderWidget::SliderProxyStyle::~SliderProxyStyle() {
+
+}
+
+void SliderWidget::SliderProxyStyle::drawComplexControl(ComplexControl control, const QStyleOptionComplex* option, QPainter* painter, const QWidget* widget) const{
+    if (control != CC_Slider) {
+        QProxyStyle::drawComplexControl(control, option, painter, widget);
+        return;
+    }
+
+    if (const QStyleOptionSlider* sliderOption = qstyleoption_cast<const QStyleOptionSlider*>(option)) {
+        const QRect grooveRect = subControlRect(CC_Slider, sliderOption, SC_SliderGroove, widget);
+        const QRect handleRect = subControlRect(CC_Slider, sliderOption, SC_SliderHandle, widget);
+
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing);
+
+        QRect customGroove = grooveRect;
+
+        QLinearGradient linearBackgroundGradient(QPoint(0, 0), QPoint(100, 0));
+        linearBackgroundGradient.setColorAt(0.0, QColor(10,10,10));
+        linearBackgroundGradient.setColorAt(1.0, QColor(100, 100, 100));
+
+        painter->setPen(Qt::NoPen);
+        painter->setBrush(linearBackgroundGradient);
+        painter->drawRoundedRect(customGroove, 4.0, 4.0);
+
+        QRect filledRect = grooveRect;
+        filledRect.setRight(handleRect.center().x());
+
+        const int filledPercentage = ((sliderOption->sliderValue - sliderOption->minimum) * 100) / (sliderOption->maximum - sliderOption->minimum);
+        QColor finishedColor;
+
+        if (filledPercentage > 95) {
+            finishedColor = Qt::red;
+        } else if (filledPercentage > 75) {
+            QColor color1(Qt::lightGray);
+            QColor color2(Qt::red);
+
+            const float invertThreshold = 1.0f / 85.0f;
+            const float filledPercentageFloat = (filledPercentage - 75) * 4.0f / 100.0f;
+            const float redChannel = color1.red() + (color2.red() - color1.red()) * filledPercentageFloat;
+            const float greenChannel = color1.green() + (color2.green() - color1.green()) * filledPercentageFloat;
+            const float blueChannel = color1.blue() + (color2.blue() - color1.blue()) * filledPercentageFloat;
+            finishedColor = QColor(redChannel, greenChannel, blueChannel);
+        } else {
+            QColor color1(Qt::blue);
+            QColor color2(Qt::lightGray);
+
+            const float filledPercentageFloat = filledPercentage / 100.0f * (1.0f / 0.75f);
+            const float redChannel = color1.red() + (color2.red() - color1.red()) * filledPercentageFloat;
+            const float greenChannel = color1.green() + (color2.green() - color1.green()) * filledPercentageFloat;
+            const float blueChannel = color1.blue() + (color2.blue() - color1.blue()) * filledPercentageFloat;
+            finishedColor = QColor(redChannel, greenChannel, blueChannel);
+        }
+
+        QRadialGradient radialGradient(handleRect.center(), 200);
+        radialGradient.setColorAt(0.0, QColor(~finishedColor.red(), ~finishedColor.green(), ~finishedColor.blue()));
+        radialGradient.setColorAt(1.0, finishedColor);
+
+        painter->setBrush(radialGradient);
+        painter->drawRoundedRect(filledRect, 4.0, 4.0);
+
+        QRect customHandleRect(handleRect.center().x() - 12, handleRect.y(), 24, handleRect.height());
+        if (sliderOption->state & QStyle::State_MouseOver) {
+            painter->setBrush(Qt::white);
+        } else {
+            painter->setBrush(Qt::lightGray);
+        }
+
+        painter->drawRect(customHandleRect);
+
+        painter->restore();
+    }
+}
+
+QRect SliderWidget::SliderProxyStyle::subControlRect(ComplexControl control, const QStyleOptionComplex* option, SubControl subcontrol, const QWidget* widget) const{
+    if (control != CC_Slider) {
+        return QProxyStyle::subControlRect(control, option, subcontrol, widget);
+    }
+
+    if (const QStyleOptionSlider* sliderOption = qstyleoption_cast<const QStyleOptionSlider*>(option)) {
+        const int handleWidth = 24;
+
+        if (subcontrol == SC_SliderHandle) {
+            const int sliderPosition = sliderPositionFromValue(sliderOption->minimum, sliderOption->maximum, sliderOption->sliderValue, sliderOption->rect.width() - handleWidth);
+            return QRect(sliderPosition, 0, handleWidth, sliderOption->rect.height());
+        }
+
+        if (subcontrol == SC_SliderGroove) {
+            QRect grooveRect = sliderOption->rect;
+            grooveRect.setLeft(grooveRect.left() + handleWidth / 2);
+            grooveRect.setRight(grooveRect.right() - handleWidth / 2);
+            return sliderOption->rect;
+        }
+    }
+
+    return QProxyStyle::subControlRect(control, option, subcontrol, widget);
+}
+
 BrushWidget::BrushWidget(QWidget* parent) :
 QWidget(parent),
 mainLayout(this),
@@ -284,7 +393,9 @@ scrollAreaWrapperWidgetLayout(&scrollAreaWrapperWidget),
 brushPreview(128,128, QImage::Format_RGBA8888),
 brushPreviewWrapper(this),
 colorPickerWidget("Color", ColorPicker::GetInstance(), this),
-smoothnessSlider("Smoothness", this, 0.1){
+smoothnessSlider("Smoothness", this),
+sizeSlider("Size", this, 0.0, 1.0, 1.0),
+brushProperties{ 0.0f, 1.0f } {
     const ColorPicker& colorPicker = ColorPicker::GetInstance();
 
     brushPreview.fill(Qt::transparent);
@@ -306,8 +417,12 @@ smoothnessSlider("Smoothness", this, 0.1){
     scrollAreaWrapperWidgetLayout.addWidget(&smoothnessSlider);
     connect(&smoothnessSlider, &SliderWidget::changedValue, this, &BrushWidget::onValueChanged);
 
-    QWidget* widgets[2] = { &colorPickerWidget, &smoothnessSlider };
-    SliderWidget::GetLongestNameplateWidth(widgets, 2);
+    scrollAreaWrapperWidgetLayout.addWidget(&sizeSlider);
+    connect(&sizeSlider, &SliderWidget::changedValue, this, &BrushWidget::onSizeChanged);
+
+    constexpr int widgetsCount = 3;
+    QWidget* widgets[widgetsCount] = { &colorPickerWidget, &smoothnessSlider, &sizeSlider };
+    SliderWidget::GetLongestNameplateWidth(widgets, widgetsCount);
 
     scrollArea.setWidgetResizable(true);
     scrollArea.setWidget(&scrollAreaWrapperWidget);
@@ -315,35 +430,43 @@ smoothnessSlider("Smoothness", this, 0.1){
 }
 
 void BrushWidget::onValueChanged(double value, double maximum){
-    printf("onValueChanged\n");
-    const double sliderDoubleValue = value/maximum;
-    brushPreview.fill(Qt::transparent);
-    QPainter painter(&brushPreview);
-    painter.setPen(Qt::NoPen);
-    QRadialGradient radialGradient(brushPreview.width()/2, brushPreview.height()/2, brushPreview.width()/2);
-    QColor pickerColor = colorPickerWidget.GetPickerColor();
-    radialGradient.setColorAt(1.0-sliderDoubleValue, pickerColor);
-    radialGradient.setColorAt(1.0, Qt::transparent);
-    painter.setBrush(radialGradient);
-    painter.drawEllipse(0.0, 0.0, brushPreview.width(), brushPreview.height());
+    printf("onSmoothnessChanged\n");
+    brushProperties.Smoothness = value;
+    const QImage previewImage = calculateBrushPreview();
+    brushPreviewWrapper.setPixmap(QPixmap::fromImage(previewImage));
 
-    brushPreviewWrapper.setPixmap(QPixmap::fromImage(brushPreview));
-
-    emit BrushChanged(brushPreview);
+    emit BrushChanged(previewImage);
 }
 
 void BrushWidget::onColorChanged(QColor newColor){
     brushPreview.fill(Qt::transparent);
+
+    colorPickerWidget.SetPickerColor(newColor);
+    QImage previewImage = calculateBrushPreview();
+    brushPreviewWrapper.setPixmap(QPixmap::fromImage(previewImage));
+
+    emit BrushChanged(previewImage);
+}
+
+void BrushWidget::onSizeChanged(double value, double maximum) {
+    printf("onSizeChanged\n");
+    brushProperties.Size = value;
+    const QImage previewImage = calculateBrushPreview();
+    brushPreviewWrapper.setPixmap(QPixmap::fromImage(previewImage));
+
+    emit BrushChanged(previewImage);
+}
+
+QImage BrushWidget::calculateBrushPreview() {
+    brushPreview.fill(Qt::transparent);
     QPainter painter(&brushPreview);
     painter.setPen(Qt::NoPen);
-    QRadialGradient radialGradient(brushPreview.width()/2, brushPreview.height()/2, brushPreview.width()/2);
-    colorPickerWidget.SetPickerColor(newColor);
-    radialGradient.setColorAt(0.0, newColor);
-    radialGradient.setColorAt(1.0, Qt::transparent);
-    painter.setBrush(radialGradient);
-    painter.drawEllipse(0.0, 0.0, brushPreview.width(), brushPreview.height());
-
-    brushPreviewWrapper.setPixmap(QPixmap::fromImage(brushPreview));
-
-    emit BrushChanged(brushPreview);
+    QColor pickerColor = colorPickerWidget.GetPickerColor();
+    painter.setBrush(pickerColor);
+    const int brushPreviewWidth = brushPreview.width();
+    const int brushPreviewHeight = brushPreview.height();
+    painter.drawEllipse(brushPreviewWidth / 2 * (1.0f - brushProperties.Size), brushPreviewHeight / 2 * (1.0f - brushProperties.Size), brushPreviewWidth * brushProperties.Size, brushPreviewHeight * brushProperties.Size);
+    const QSize smallSize(brushPreviewWidth * (1.01f - brushProperties.Smoothness), brushPreviewHeight * (1.01f - brushProperties.Smoothness));
+    const QImage smallImage = brushPreview.scaled(smallSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    return smallImage.scaled(brushPreview.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
