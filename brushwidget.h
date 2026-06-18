@@ -11,6 +11,7 @@
 #include <QDialog>
 #include <QScrollArea>
 #include <QLineEdit>
+#include <QProxyStyle>
 #if defined(__EMSCRIPTEN__)
 #include <QOpenGLFunctions>
 #else
@@ -20,6 +21,15 @@
 class SliderWidget : public QWidget{
     Q_OBJECT
 public:
+    class SliderProxyStyle : public QProxyStyle {
+    public:
+        SliderProxyStyle(QStyle* style = nullptr);
+        ~SliderProxyStyle();
+
+        void drawComplexControl(ComplexControl control, const QStyleOptionComplex* option, QPainter* painter, const QWidget* widget = nullptr) const override;
+        QRect subControlRect(ComplexControl control, const QStyleOptionComplex* option, SubControl subcontrol, const QWidget* widget = nullptr) const override;
+    };
+
     explicit SliderWidget(QString text, QWidget* parent = nullptr, double minimum = 0.0, double maximum = 1.0, double value = 0.0);
     ~SliderWidget();
 
@@ -37,6 +47,7 @@ protected:
 
     QHBoxLayout mainLayout;
     QLabel sliderLabel;
+    SliderProxyStyle sliderProxyStyle;
     QSlider slider;
     QDoubleSpinBox sliderSpinbox;
 
@@ -109,6 +120,9 @@ signals:
 protected:
     void onValueChanged(double value, double maximum);
     void onColorChanged(QColor newColor);
+    void onSizeChanged(double value, double maximum);
+
+    QImage calculateBrushPreview();
 
     QVBoxLayout mainLayout;
     QScrollArea scrollArea;
@@ -118,6 +132,12 @@ protected:
     QLabel brushPreviewWrapper;
     ColorPickerWidget colorPickerWidget;
     SliderWidget smoothnessSlider;
+    SliderWidget sizeSlider;
+
+    struct {
+        float Smoothness;
+        float Size;
+    } brushProperties;
 };
 
 #endif // BRUSHWIDGET_H
