@@ -429,15 +429,16 @@ brushProperties{ 0.0f, 1.0f } {
     brushPreviewWrapper.setFixedHeight(128);
     scrollAreaWrapperWidgetLayout.addWidget(&brushPreviewWrapper);
     connect(&colorPicker, &ColorPicker::colorChanged, this, &BrushWidget::onColorChanged);
+    scrollAreaWrapperWidgetLayout.addWidget(&colorPickerWidget);
+
+    connect(&smoothnessSlider, &SliderWidget::changedValue, this, &BrushWidget::onValueChanged);
+    scrollAreaWrapperWidgetLayout.addWidget(&smoothnessSlider);
+
+    connect(&sizeSlider, &SliderWidget::changedValue, this, &BrushWidget::onSizeChanged);
+    scrollAreaWrapperWidgetLayout.addWidget(&sizeSlider);
 
     constexpr int widgetsCount = 3;
     QWidget* widgets[widgetsCount] = { &colorPickerWidget, &smoothnessSlider, &sizeSlider };
-    for (QWidget* widget : widgets) {
-        if (SliderWidget* sliderWidget = qobject_cast<SliderWidget*>(widget)) {
-            connect(sliderWidget, &SliderWidget::changedValue, this, &BrushWidget::onValueChanged);
-        }
-        scrollAreaWrapperWidgetLayout.addWidget(widget);
-    }
     SliderWidget::GetLongestNameplateWidth(widgets, widgetsCount);
     scrollAreaWrapperWidgetLayout.addStretch();
 
