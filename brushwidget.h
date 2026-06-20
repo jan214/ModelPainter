@@ -10,7 +10,6 @@
 #include <QPushButton>
 #include <QDialog>
 #include <QScrollArea>
-#include <QLineEdit>
 #include <QProxyStyle>
 #if defined(__EMSCRIPTEN__)
 #include <QOpenGLFunctions>
@@ -56,7 +55,7 @@ protected:
     double value;
 
     struct {
-        QLineEdit* lineEdit;
+        class QLineEdit* lineEdit;
         bool mouseDown;
         QPoint mousePosition;
     } spinboxDrag;
@@ -97,7 +96,7 @@ class ColorPickerWidget : public QWidget{
     Q_OBJECT
 public:
     explicit ColorPickerWidget(QString text, ColorPicker& colorPicker, QWidget* parent = nullptr);
-    ~ColorPickerWidget(){}
+    virtual ~ColorPickerWidget(){}
 
     inline QColor GetPickerColor();
     void SetPickerColor(const QColor newColor);
@@ -112,7 +111,7 @@ class BrushWidget : public QWidget
     Q_OBJECT
 public:
     explicit BrushWidget(QWidget* parent = nullptr);
-    ~BrushWidget(){}
+    virtual ~BrushWidget(){}
 
 signals:
     void BrushChanged(const QImage& brushTexture);
