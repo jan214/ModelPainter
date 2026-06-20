@@ -1,11 +1,10 @@
 #include "brushwidget.h"
 
-#include <QVBoxLayout>
-#include <QToolButton>
 #include <QPainter>
 #include <QEvent>
 #include <QMouseEvent>
 #include <QStyleOption>
+#include <QLineEdit>
 
 ColorPicker::ColorPicker(QWidget* parent) :
 QDialog(parent),
@@ -122,6 +121,8 @@ QWidget(parent),
 mainLayout(this),
 colorPickerLabel(text),
 colorPickerColor(){
+    setFixedHeight(40);
+
     colorPickerLabel.setObjectName("NameLabel");
     mainLayout.addWidget(&colorPickerLabel);
     mainLayout.addWidget(&colorPickerColor);
@@ -170,7 +171,9 @@ minimum(minimum),
 maximum(maximum),
 value(value),
 spinboxDrag({}) {
+    setFixedHeight(40);
     mainLayout.setSpacing(0);
+
     slider.setStyle(&sliderProxyStyle);
 
     sliderLabel.setObjectName("NameLabel");
@@ -301,15 +304,15 @@ void SliderWidget::SliderProxyStyle::drawComplexControl(ComplexControl control, 
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing);
 
-        QRect customGroove = grooveRect;
+        QRect customGroove = grooveRect.adjusted(1,1,-1,-1);
 
         QLinearGradient linearBackgroundGradient(QPoint(0, 0), QPoint(100, 0));
-        linearBackgroundGradient.setColorAt(0.0, QColor(10,10,10));
-        linearBackgroundGradient.setColorAt(1.0, QColor(100, 100, 100));
+        linearBackgroundGradient.setColorAt(0.0, QColor(100,100,100));
+        linearBackgroundGradient.setColorAt(1.0, QColor(50, 50, 50));
 
         painter->setPen(Qt::NoPen);
         painter->setBrush(linearBackgroundGradient);
-        painter->drawRoundedRect(customGroove, 4.0, 4.0);
+        painter->drawRoundedRect(customGroove, 2.0, 2.0);
 
         QRect filledRect = grooveRect;
         filledRect.setRight(handleRect.center().x());
@@ -320,32 +323,44 @@ void SliderWidget::SliderProxyStyle::drawComplexControl(ComplexControl control, 
         if (filledPercentage > 95) {
             finishedColor = Qt::red;
         } else if (filledPercentage > 75) {
-            QColor color1(Qt::lightGray);
-            QColor color2(Qt::red);
+            const QColor colorStart(Qt::lightGray);
+            const QColor colorEnd(Qt::red);
 
-            const float invertThreshold = 1.0f / 85.0f;
             const float filledPercentageFloat = (filledPercentage - 75) * 4.0f / 100.0f;
-            const float redChannel = color1.red() + (color2.red() - color1.red()) * filledPercentageFloat;
-            const float greenChannel = color1.green() + (color2.green() - color1.green()) * filledPercentageFloat;
-            const float blueChannel = color1.blue() + (color2.blue() - color1.blue()) * filledPercentageFloat;
+            const float redChannel = colorStart.red() + (colorEnd.red() - colorStart.red()) * filledPercentageFloat;
+            const float greenChannel = colorStart.green() + (colorEnd.green() - colorStart.green()) * filledPercentageFloat;
+            const float blueChannel = colorStart.blue() + (colorEnd.blue() - colorStart.blue()) * filledPercentageFloat;
             finishedColor = QColor(redChannel, greenChannel, blueChannel);
         } else {
-            QColor color1(Qt::blue);
-            QColor color2(Qt::lightGray);
+            const QColor colorStart(Qt::blue);
+            const QColor colorEnd(Qt::lightGray);
 
             const float filledPercentageFloat = filledPercentage / 100.0f * (1.0f / 0.75f);
-            const float redChannel = color1.red() + (color2.red() - color1.red()) * filledPercentageFloat;
-            const float greenChannel = color1.green() + (color2.green() - color1.green()) * filledPercentageFloat;
-            const float blueChannel = color1.blue() + (color2.blue() - color1.blue()) * filledPercentageFloat;
+            const float redChannel = colorStart.red() + (colorEnd.red() - colorStart.red()) * filledPercentageFloat;
+            const float greenChannel = colorStart.green() + (colorEnd.green() - colorStart.green()) * filledPercentageFloat;
+            const float blueChannel = colorStart.blue() + (colorEnd.blue() - colorStart.blue()) * filledPercentageFloat;
             finishedColor = QColor(redChannel, greenChannel, blueChannel);
         }
 
-        QRadialGradient radialGradient(handleRect.center(), 200);
-        radialGradient.setColorAt(0.0, QColor(~finishedColor.red(), ~finishedColor.green(), ~finishedColor.blue()));
+        QRadialGradient radialGradient(handleRect.center(), 100);
+        radialGradient.setColorAt(0.0, Qt::white);
         radialGradient.setColorAt(1.0, finishedColor);
 
         painter->setBrush(radialGradient);
         painter->drawRoundedRect(filledRect, 4.0, 4.0);
+
+        QRect customGrooveFrame = grooveRect.adjusted(1,1,-1,-1);
+
+        QLinearGradient linearFrameGradient(QPoint(0, 0), QPoint(handleRect.center().x(), 100));
+        linearFrameGradient.setColorAt(0.0, Qt::white);
+        linearFrameGradient.setColorAt(1.0, Qt::lightGray);
+
+        painter->setBrush(Qt::NoBrush);
+        QPen gradientPen;
+        gradientPen.setBrush(linearFrameGradient);
+        gradientPen.setWidth(2);
+        painter->setPen(gradientPen);
+        painter->drawRoundedRect(customGrooveFrame, 2.0, 2.0);
 
         QRect customHandleRect(handleRect.center().x() - 12, handleRect.y(), 24, handleRect.height());
         if (sliderOption->state & QStyle::State_MouseOver) {
@@ -396,6 +411,8 @@ colorPickerWidget("Color", ColorPicker::GetInstance(), this),
 smoothnessSlider("Smoothness", this),
 sizeSlider("Size", this, 0.0, 1.0, 1.0),
 brushProperties{ 0.0f, 1.0f } {
+    scrollAreaWrapperWidgetLayout.setSpacing(0);
+
     const ColorPicker& colorPicker = ColorPicker::GetInstance();
 
     brushPreview.fill(Qt::transparent);
@@ -409,20 +426,20 @@ brushProperties{ 0.0f, 1.0f } {
     painter.drawEllipse(0.0, 0.0, brushPreview.width(), brushPreview.height());
 
     brushPreviewWrapper.setPixmap(QPixmap::fromImage(brushPreview));
+    brushPreviewWrapper.setFixedHeight(128);
     scrollAreaWrapperWidgetLayout.addWidget(&brushPreviewWrapper);
     connect(&colorPicker, &ColorPicker::colorChanged, this, &BrushWidget::onColorChanged);
 
-    scrollAreaWrapperWidgetLayout.addWidget(&colorPickerWidget);
-
-    scrollAreaWrapperWidgetLayout.addWidget(&smoothnessSlider);
-    connect(&smoothnessSlider, &SliderWidget::changedValue, this, &BrushWidget::onValueChanged);
-
-    scrollAreaWrapperWidgetLayout.addWidget(&sizeSlider);
-    connect(&sizeSlider, &SliderWidget::changedValue, this, &BrushWidget::onSizeChanged);
-
     constexpr int widgetsCount = 3;
     QWidget* widgets[widgetsCount] = { &colorPickerWidget, &smoothnessSlider, &sizeSlider };
+    for (QWidget* widget : widgets) {
+        if (SliderWidget* sliderWidget = qobject_cast<SliderWidget*>(widget)) {
+            connect(sliderWidget, &SliderWidget::changedValue, this, &BrushWidget::onValueChanged);
+        }
+        scrollAreaWrapperWidgetLayout.addWidget(widget);
+    }
     SliderWidget::GetLongestNameplateWidth(widgets, widgetsCount);
+    scrollAreaWrapperWidgetLayout.addStretch();
 
     scrollArea.setWidgetResizable(true);
     scrollArea.setWidget(&scrollAreaWrapperWidget);
