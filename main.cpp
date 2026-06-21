@@ -52,6 +52,14 @@ int main(int argc, char **argv)
     const float relationWindowSize = 0.7f;
     window.resize(screen->size().width() * relationWindowSize, screen->size().height() * relationWindowSize);
 
+    QFile qssFile(":/styles/style.qss");
+    if (qssFile.open(QFile::ReadOnly | QFile::Text)) {
+        printf("qssFile open\n");
+        QString qssFileText = QString::fromUtf8(qssFile.readAll());
+        application.setStyleSheet(qssFileText);
+        qssFile.close();
+    }
+
 #ifndef __EMSCRIPTEN__
     QMenu* fileMenu = window.menuBar()->addMenu("File");
     QAction* const testAction = fileMenu->addAction("Load Model...");
