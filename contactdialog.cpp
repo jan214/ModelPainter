@@ -43,6 +43,7 @@ ContactDialog::ContactDialog(QWidget* parent) :
 QDialog(parent),
 mainLayout(this),
 closeButton("Close", this){
+	setObjectName("ContactDialog");
 	setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
 	setAttribute(Qt::WA_TranslucentBackground);
 	mainLayout.setSizeConstraint(QLayout::SetFixedSize);
@@ -86,7 +87,6 @@ closeButton("Close", this){
 	qRCodeWrapperLabel->setFixedSize(QSize(qRCodeSize, qRCodeSize));
 	qRCodeWrapperLabel->setPixmap(QPixmap::fromImage(qRCode.scaled(qRCodeSize,qRCodeSize,Qt::KeepAspectRatio,Qt::SmoothTransformation)));
 	qRCodeWrapperLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-	//qRCodeWrapperLabel->setAlignment(Qt::AlignCenter);
 	qRCodeWrapperLabel->setVisible(true);
 	websiteItem->AddWidget(qRCodeWrapperLabel);
 	mainLayout.addWidget(websiteItem);
@@ -96,7 +96,6 @@ closeButton("Close", this){
 	QPushButton* copyButton = new QPushButton(QIcon::fromTheme("edit-copy"), "", emailAddressItem);
 	copyButton->setObjectName("CopyButton");
 	copyButton->setFixedSize(QSize(websiteItem->height(), websiteItem->height()));
-	copyButton->setStyleSheet("#CopyButton{ background-color: transparent; border-radius: 4px; } #CopyButton::hover{ background-color: rgba(221,221,221,125); border: 1px solid rgba(245,245,245,255); }");
 	copyButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 	QObject::connect(copyButton, &QPushButton::clicked, [emailAddress]() { QGuiApplication::clipboard()->setText(emailAddress); });
 	emailAddressItem->AddWidget(copyButton);
@@ -104,7 +103,6 @@ closeButton("Close", this){
 
 	mainLayout.addSpacing(27);
 	closeButton.setObjectName("CloseButton");
-	closeButton.setStyleSheet("#CloseButton{ color: rgba(51,51,51,255); background-color: rgba(221,221,221,125); border-radius: 4px; border: 1px solid rgba(245,245,245,255); } #CloseButton::hover{ color: rgba(245,245,245,255); background-color: rgba(56,56,56,125); border: 1px solid rgba(51,51,51,255); }");
 	closeButton.setFixedHeight(27);
 
     QObject::connect(&closeButton, &QPushButton::clicked, this, [this]() { close(); });
