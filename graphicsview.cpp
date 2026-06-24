@@ -30,11 +30,9 @@ modelLoader(ModelLoader::GetInstance()){
 }
 
 void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
-    QGraphicsView::drawForeground(painter, rect);
-
     painter->save();
 
-    painter->resetTransform();
+    //painter->resetTransform();
 
     QPen pen(Qt::black);
     painter->setPen(pen);
@@ -44,24 +42,22 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
 
     if (openGLWidget != nullptr) {
         printf("update DrawForeground\n");
-        const float width = openGLWidget->ViewWidth;
-        const float height = openGLWidget->ViewHeight;
         if (modelLoader.GetTextureCoordinatesSize() > 0) {
             QPainterPath path;
             for (int counter = 0; counter < modelLoader.GetTextureCoordinatesSize(); counter+=2) {
                 if (counter == 0) {
-                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * width, height - modelLoader.GetTextureCoordinates()[counter + 1] * height);
+                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter + 1] * 512.0f);
                     path.moveTo(point);
                     continue;
                 }
                 if (counter % 6 == 0) {
-                    const QPointF oldPoint(modelLoader.GetTextureCoordinates()[counter - 6] * width, height - modelLoader.GetTextureCoordinates()[counter - 6 + 1] * height);
+                    const QPointF oldPoint(modelLoader.GetTextureCoordinates()[counter - 6] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter - 6 + 1] * 512.0f);
                     path.lineTo(oldPoint);
-                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * width, height - modelLoader.GetTextureCoordinates()[counter + 1] * height);
+                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter + 1] * 512.0f);
                     path.moveTo(point);
                     continue;
                 }
-                const QPointF point(modelLoader.GetTextureCoordinates()[counter] * width, height - modelLoader.GetTextureCoordinates()[counter + 1] * height);
+                const QPointF point(modelLoader.GetTextureCoordinates()[counter] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter + 1] * 512.0f);
                 path.lineTo(point);
             }
 
@@ -70,6 +66,8 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
     }
 
     painter->restore();
+
+    QGraphicsView::drawForeground(painter, rect);
 }
 
 void GraphicsView::drawBackground(QPainter* painter, const QRectF& rect){
@@ -88,14 +86,8 @@ void GraphicsView::drawBackground(QPainter* painter, const QRectF& rect){
 bool GraphicsView::event(QEvent* event){
     if(event->type() == QEvent::MouseButtonPress){
         QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event);
-
-        const float viewportWidth = openGLWidget->ViewWidth;
-        const float viewportHeight = openGLWidget->ViewHeight;
-        const float mousex = ((float)mouseEvent->pos().x()+0.5f)/viewportWidth;
-        const float mousey = ((float)mouseEvent->pos().y()+0.5f)/viewportHeight;
-
-        const QVector2D mousePosition((2.0f * mousex - 1.0f)/(512.0f*openGLWidget->CurrentScale/viewportWidth),
-                                      (1.0f - 2.0f * mousey)/(512.0f*openGLWidget->CurrentScale/viewportHeight));
+        const QPointF scenePosition = mapToScene(mouseEvent->pos());
+        const QVector2D mousePosition(2.0f * (scenePosition.x() / 512.0f) - 1.0f, 1.0f - 2.0f * (scenePosition.y() / 512.0f));
 
         emit drawChanged(mousePosition);
         return true;
@@ -110,14 +102,8 @@ bool GraphicsView::eventFilter(QObject* object, QEvent* event){
             if(QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event)){
                 if(!(mouseEvent->modifiers() & Qt::ShiftModifier) && mouseEvent->buttons() == Qt::LeftButton){
                     QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event);
-
-                    const float viewportWidth = openGLWidget->ViewWidth;
-                    const float viewportHeight = openGLWidget->ViewHeight;
-                    const float mousex = ((float)mouseEvent->pos().x()+0.5f)/viewportWidth;
-                    const float mousey = ((float)mouseEvent->pos().y()+0.5f)/viewportHeight;
-
-                    const QVector2D mousePosition((2.0f * mousex - 1.0f)/(512.0f*openGLWidget->CurrentScale/viewportWidth),
-                                                  (1.0f - 2.0f * mousey)/(512.0f*openGLWidget->CurrentScale/viewportHeight));
+                    const QPointF scenePosition = mapToScene(mouseEvent->pos());
+                    const QVector2D mousePosition(2.0f * (scenePosition.x() / 512.0f) - 1.0f, 1.0f - 2.0f * (scenePosition.y() / 512.0f));
 
                     emit drawChanged(mousePosition);
                     return true;
@@ -218,7 +204,6 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
                                               0.0f,0.0f, 0.0f,1.0f, 1.0f,1.0f};
 
     drawTextureShader.AddAttribute(&quadVertices[0], 12, "position", 2);
-    // the actual texture coordinates should be from 0,..,1 so currently they are drawn four times.
     drawTextureShader.AddAttribute(&quadTextureCoordinates[0], 12, "textureCoordinates", 2);
 
     drawTextureShader.AddUniform(nullptr, 1, "textureSampler", GL_FALSE);
@@ -229,7 +214,7 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
     drawTextureShader.AddUniform(transformMatrix.data(), 16, "transformMatrix", GL_FALSE);
     AspectRatio = ViewHeight/ViewWidth;
     drawTextureShader.AddUniform(&AspectRatio, 1, "aspectRatio", GL_FALSE);
-    const float scaleFactor[2] = {512.0f*CurrentScale/width(), 512.0f*CurrentScale/height()};
+    const float scaleFactor[2] = {512.0f/**CurrentScale*//width(), 512.0f/**CurrentScale*//height()};
     drawTextureShader.AddUniform(&scaleFactor[0], 2, "scaleFactor", GL_FALSE);
 
 
@@ -264,7 +249,7 @@ void GraphicsView::ViewportOpenGLWidget::resizeGL(int w, int h){
 
     AspectRatio = ViewHeight/ViewWidth;
     drawTextureShader.ChangeUniform(2, &AspectRatio, 1, GL_FALSE);
-    const float scaleFactor[2] = {512.0f*CurrentScale/ViewWidth, 512.0f*CurrentScale/ViewHeight};
+    const float scaleFactor[2] = {512.0f/**CurrentScale*//ViewWidth, 512.0f/**CurrentScale*//ViewHeight};
     drawTextureShader.ChangeUniform(3, &scaleFactor[0], 2, GL_FALSE);
 }
 

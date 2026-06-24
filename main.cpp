@@ -60,7 +60,6 @@ int main(int argc, char **argv)
         qssFile.close();
     }
 
-#ifndef __EMSCRIPTEN__
     QMenu* fileMenu = window.menuBar()->addMenu("File");
     QAction* const testAction = fileMenu->addAction("Load Model...");
     QObject::connect(testAction, &QAction::triggered, [&window]() {
@@ -74,7 +73,6 @@ int main(int argc, char **argv)
 
         QFileDialog::getOpenFileContent("Model Files(*.obj *.fbx);; All Files(*)", fileContentReady, &window);
     });
-#endif
 
     QMenu* helpMenu = window.menuBar()->addMenu("Help");
     QAction* const testAction2 = helpMenu->addAction("Contact");

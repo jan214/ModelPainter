@@ -122,6 +122,7 @@ mainLayout(this),
 colorPickerLabel(text),
 colorPickerColor(){
     setFixedHeight(40);
+    mainLayout.setSpacing(0);
 
     colorPickerLabel.setObjectName("NameLabel");
     mainLayout.addWidget(&colorPickerLabel);
@@ -158,6 +159,13 @@ void ColorPickerWidget::SetPickerColor(const QColor newColor){
     QPalette initialPalette;
     initialPalette.setColor(QPalette::Button, newColor);
     colorPickerColor.setPalette(initialPalette);
+}
+
+void ColorPickerWidget::paintEvent(QPaintEvent* event) {
+    QStyleOption styleOption;
+    styleOption.initFrom(this);
+    QPainter painter(this);
+    style()->drawPrimitive(QStyle::PE_Widget, &styleOption, &painter, this);
 }
 
 SliderWidget::SliderWidget(QString text, QWidget* parent, double minimum, double maximum, double value) :
@@ -282,6 +290,13 @@ void SliderWidget::resizeEvent(QResizeEvent* resizeEvent) {
     QWidget::resizeEvent(resizeEvent);
 }
 
+void SliderWidget::paintEvent(QPaintEvent* event) {
+    QStyleOption styleOption;
+    styleOption.initFrom(this);
+    QPainter painter(this);
+    style()->drawPrimitive(QStyle::PE_Widget, &styleOption, &painter, this);
+}
+
 SliderWidget::SliderProxyStyle::SliderProxyStyle(QStyle* style) : 
 QProxyStyle(){
 
@@ -389,9 +404,6 @@ QRect SliderWidget::SliderProxyStyle::subControlRect(ComplexControl control, con
         }
 
         if (subcontrol == SC_SliderGroove) {
-            QRect grooveRect = sliderOption->rect;
-            grooveRect.setLeft(grooveRect.left() + handleWidth / 2);
-            grooveRect.setRight(grooveRect.right() - handleWidth / 2);
             return sliderOption->rect;
         }
     }
@@ -411,19 +423,13 @@ colorPickerWidget("Color", ColorPicker::GetInstance(), this),
 smoothnessSlider("Smoothness", this),
 sizeSlider("Size", this, 0.0, 1.0, 1.0),
 brushProperties{ 0.0f, 1.0f } {
+    setObjectName("BrushWidget");
+
     scrollAreaWrapperWidgetLayout.setSpacing(0);
 
     const ColorPicker& colorPicker = ColorPicker::GetInstance();
 
-    brushPreview.fill(Qt::transparent);
-    QPainter painter(&brushPreview);
-    painter.setPen(Qt::NoPen);
-    QRadialGradient radialGradient(brushPreview.width()/2, brushPreview.height()/2, brushPreview.width()/2);
-    QColor pickerColor = colorPickerWidget.GetPickerColor();
-    radialGradient.setColorAt(0.0, pickerColor);
-    radialGradient.setColorAt(1.0, Qt::transparent);
-    painter.setBrush(radialGradient);
-    painter.drawEllipse(0.0, 0.0, brushPreview.width(), brushPreview.height());
+    const QImage brushPreviewImage = calculateBrushPreview();
 
     brushPreviewWrapper.setPixmap(QPixmap::fromImage(brushPreview));
     brushPreviewWrapper.setFixedHeight(128);
@@ -479,7 +485,7 @@ QImage BrushWidget::calculateBrushPreview() {
     brushPreview.fill(Qt::transparent);
     QPainter painter(&brushPreview);
     painter.setPen(Qt::NoPen);
-    QColor pickerColor = colorPickerWidget.GetPickerColor();
+    const QColor pickerColor = colorPickerWidget.GetPickerColor();
     painter.setBrush(pickerColor);
     const int brushPreviewWidth = brushPreview.width();
     const int brushPreviewHeight = brushPreview.height();

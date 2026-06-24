@@ -23,9 +23,6 @@ QOpenGLFunctions(),
 #else
 QOpenGLFunctions_3_0(),
 #endif
-#if defined(__EMSCRIPTEN__)
-settingsButton("Load Model...", this),
-#endif
 defaultShader(),
 baseColorTextureSampler(),
 baseColorTexture(baseColorTexture),
@@ -178,20 +175,6 @@ hitPoint(0.0f, 0.0f, 0.0f)
     //errorList->AddError("Error: 1", ErrorList::MessageType::Error);
     //errorList->AddError("Warning: 2", ErrorList::MessageType::Warning);
     //errorList->AddError("Message: 3", ErrorList::MessageType::None);
-#endif
-
-#if defined(__EMSCRIPTEN__)
-    connect(&settingsButton, &QPushButton::clicked, [](){
-        auto fileContentReady = [](const QString& fileName, const QByteArray& fileContent) {
-                if (!fileName.isEmpty()) {
-                    QString objText = QString::fromUtf8(fileContent);
-                    QTextStream objTextStream(&objText);
-                    ModelLoader::GetInstance().LoadModel(objTextStream);
-                }
-            };
-
-        QFileDialog::getOpenFileContent("Model Files(*.obj *.fbx);; All Files(*)", fileContentReady);
-    });
 #endif
 
     printf("openGLWidget constructed\n");
@@ -409,7 +392,7 @@ void OpenGLWidget::paintGL(){
     printf("----------------------\n");
     defaultShader.BindVAO();
     defaultShader.UseProgram();
-    glClearColor(0.0f,1.0f,0.0f,1.0f);
+    glClearColor(0.0f,0.0f,0.0f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glEnable(GL_DEPTH_TEST);
@@ -870,7 +853,7 @@ void OpenGLWidget::dropEvent(QDropEvent* event){
 
         QTextStream modelFileText(&modelFile);
 
-        ModelLoader::GetInstance().LoadModel(modelFileText);
+        modelLoader.LoadModel(modelFileText);
 
         modelChanged = true;
         update();

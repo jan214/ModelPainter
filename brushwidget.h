@@ -44,6 +44,8 @@ protected:
     bool eventFilter(QObject* object, QEvent* event) override;
     void resizeEvent(QResizeEvent* resizeEvent) override;
 
+    virtual void paintEvent(QPaintEvent* event) override;
+
     QHBoxLayout mainLayout;
     QLabel sliderLabel;
     SliderProxyStyle sliderProxyStyle;
@@ -101,6 +103,8 @@ public:
     inline QColor GetPickerColor();
     void SetPickerColor(const QColor newColor);
 protected:
+    virtual void paintEvent(QPaintEvent* event) override;
+
     QHBoxLayout mainLayout;
     QLabel colorPickerLabel;
     QPushButton colorPickerColor;
