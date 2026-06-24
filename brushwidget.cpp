@@ -402,10 +402,6 @@ QRect SliderWidget::SliderProxyStyle::subControlRect(ComplexControl control, con
             const int sliderPosition = sliderPositionFromValue(sliderOption->minimum, sliderOption->maximum, sliderOption->sliderValue, sliderOption->rect.width() - handleWidth);
             return QRect(sliderPosition, 0, handleWidth, sliderOption->rect.height());
         }
-
-        if (subcontrol == SC_SliderGroove) {
-            return sliderOption->rect;
-        }
     }
 
     return QProxyStyle::subControlRect(control, option, subcontrol, widget);

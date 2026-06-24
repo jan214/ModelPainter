@@ -32,8 +32,6 @@ modelLoader(ModelLoader::GetInstance()){
 void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
     painter->save();
 
-    //painter->resetTransform();
-
     QPen pen(Qt::black);
     painter->setPen(pen);
     painter->drawText(10,10,"Test");
@@ -44,20 +42,22 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
         printf("update DrawForeground\n");
         if (modelLoader.GetTextureCoordinatesSize() > 0) {
             QPainterPath path;
+            const float textureWidth = 512.0f;
+            const float textureHeight = 512.0f;
             for (int counter = 0; counter < modelLoader.GetTextureCoordinatesSize(); counter+=2) {
                 if (counter == 0) {
-                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter + 1] * 512.0f);
+                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * textureWidth, textureHeight - modelLoader.GetTextureCoordinates()[counter + 1] * textureHeight);
                     path.moveTo(point);
                     continue;
                 }
                 if (counter % 6 == 0) {
-                    const QPointF oldPoint(modelLoader.GetTextureCoordinates()[counter - 6] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter - 6 + 1] * 512.0f);
+                    const QPointF oldPoint(modelLoader.GetTextureCoordinates()[counter - 6] * textureWidth, textureHeight - modelLoader.GetTextureCoordinates()[counter - 6 + 1] * textureHeight);
                     path.lineTo(oldPoint);
-                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter + 1] * 512.0f);
+                    const QPointF point(modelLoader.GetTextureCoordinates()[counter] * textureWidth, textureHeight - modelLoader.GetTextureCoordinates()[counter + 1] * textureHeight);
                     path.moveTo(point);
                     continue;
                 }
-                const QPointF point(modelLoader.GetTextureCoordinates()[counter] * 512.0f, 512.0f - modelLoader.GetTextureCoordinates()[counter + 1] * 512.0f);
+                const QPointF point(modelLoader.GetTextureCoordinates()[counter] * textureWidth, textureHeight - modelLoader.GetTextureCoordinates()[counter + 1] * textureHeight);
                 path.lineTo(point);
             }
 
@@ -214,7 +214,9 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
     drawTextureShader.AddUniform(transformMatrix.data(), 16, "transformMatrix", GL_FALSE);
     AspectRatio = ViewHeight/ViewWidth;
     drawTextureShader.AddUniform(&AspectRatio, 1, "aspectRatio", GL_FALSE);
-    const float scaleFactor[2] = {512.0f/**CurrentScale*//width(), 512.0f/**CurrentScale*//height()};
+    const float textureWidth = 512.0f;
+    const float textureHeight = 512.0f;
+    const float scaleFactor[2] = {textureWidth/ViewWidth, textureHeight/ViewHeight};
     drawTextureShader.AddUniform(&scaleFactor[0], 2, "scaleFactor", GL_FALSE);
 
 
@@ -249,7 +251,9 @@ void GraphicsView::ViewportOpenGLWidget::resizeGL(int w, int h){
 
     AspectRatio = ViewHeight/ViewWidth;
     drawTextureShader.ChangeUniform(2, &AspectRatio, 1, GL_FALSE);
-    const float scaleFactor[2] = {512.0f/**CurrentScale*//ViewWidth, 512.0f/**CurrentScale*//ViewHeight};
+    const float textureWidth = 512.0f;
+    const float textureHeight = 512.0f;
+    const float scaleFactor[2] = {textureWidth/ViewWidth, textureHeight/ViewHeight};
     drawTextureShader.ChangeUniform(3, &scaleFactor[0], 2, GL_FALSE);
 }
 
