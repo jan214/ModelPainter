@@ -1,3 +1,85 @@
+/* QMainWindow */
+QMainWindow{
+	background-color: #121212;
+}
+
+QMainWindow::separator{
+	background-color: #121212;
+	width: 5px;
+	height: 5px;
+}
+
+QMainWindow::separator:hover{
+	background-color: #444444;
+}
+
+/* QMenuBar */
+QMainWindow QMenuBar{
+	color: #EEEEEE;
+	background-color: #121212;
+}
+
+QMainWindow QMenuBar::item:selected{
+	background-color: #444444;
+}
+
+QMainWindow QMenu{
+	background-color: #1E1E1E;
+	padding: 0px 0px;
+	margin: 0px 2px;
+}
+
+QMainWindow QMenu::item{
+	color: #EEEEEE;
+	background-color: #1E1E1E;
+	padding: 6px 12px 6px 12px;
+	margin: 0px 4px;
+	border-radius: 4px;
+}
+
+QMainWindow QMenu::item:selected{
+	padding: 6px 12px 6px 12px;
+	margin: 0px 0px;
+	background-color: #444444;
+}
+
+/* QDockWidget */
+QDockWidget{
+	color: #EEEEEE;
+}
+
+QDockWidget::title{
+	background-color: #242424;
+}
+
+QDockWidget::title:hover{
+	background-color: #444444;
+}
+
+/* BrushWidget */
+#BrushWidget QScrollArea > QWidget > QWidget{
+	background-color: #242424;
+}
+
+#BrushWidget ColorPickerWidget:hover{
+	background-color: #444444;
+	border-radius: 8px;
+}
+
+#BrushWidget ColorPickerWidget QLabel{
+	color: #EEEEEE;
+	margin: 4px 0px;
+}
+
+#BrushWidget SliderWidget:hover{
+	background-color: #444444;
+	border-radius: 8px;
+}
+
+#BrushWidget SliderWidget QLabel{
+	color: #EEEEEE;
+}
+
 /* Contact Dialog */
 #ContactDialog QPushButton#CopyButton{
 	background-color: transparent;
