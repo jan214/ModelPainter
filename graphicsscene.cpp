@@ -5,7 +5,7 @@
 GraphicsScene::GraphicsScene(QObject* const parent) :
 QGraphicsScene(parent)
 {
-    setSceneRect(0,0,512,512);
+    setSceneRect(0.0,0.0,512.0,512.0);
 }
 
 void GraphicsScene::drawBackground(QPainter* painter, const QRectF& rect){

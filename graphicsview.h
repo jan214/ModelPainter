@@ -23,13 +23,27 @@ public:
     explicit GraphicsView(GLuint& baseColorTexture, QWidget* const parent = nullptr);
     ~GraphicsView(){}
 
-    void OnDrawChanged();
+    // returns the texture from the ViewportOpenGLWidget that is being drawn on as a QByteArray
+    QByteArray GetBaseColorTexture();
 
 signals:
-    void drawChanged(const QVector2D mousePosition);
-    void TransformChanged(const QTransform transform);
+    void drawChanged(const QPointF mousePosition);
+    void TransformChanged(const QMatrix4x4 transform);
 
 protected:
+    virtual void drawForeground(QPainter* painter, const QRectF& rect) override;
+    virtual void drawBackground(QPainter* painter, const QRectF& rect) override;
+    // handles mouse button press in the viewport
+    virtual bool event(QEvent* event) override;
+    // handles mouse move while mouse button pressed in the viewport
+    bool eventFilter(QObject* object, QEvent* event) override;
+    virtual void resizeEvent(QResizeEvent* event) override;
+    // handles zooming in the viewport
+    virtual void wheelEvent(QWheelEvent* event) override;
+    // handles open the export texture menu
+    virtual void mouseReleaseEvent(QMouseEvent* event) override;
+
+    // ViewportOpenGLWidget class is used for rendering the opengl texture in the QGraphicsView viewport
 #if defined(__EMSCRIPTEN__)
     class ViewportOpenGLWidget : public QOpenGLWidget, protected QOpenGLFunctions{
 #else
@@ -44,34 +58,36 @@ protected:
         void paintGL() override;
         void resizeGL(int w, int h) override;
 
-        void OnTransformChanged(const QTransform transform);
+        // called when Qts GraphicsView transform changes and updates the opengl viewport transform
+        inline void OnTransformChanged(const QMatrix4x4 transform);
 
-        float ViewWidth;
-        float ViewHeight;
-        float AspectRatio;
-        float CurrentScale;
+        // returns the texture that is being drawn on from opengl as QByteArray
+        QByteArray GetBaseColorTexture();
+
+        float ViewWidth;    // the viewports width
+        float ViewHeight;   // the viewports height
+        float AspectRatio;  // the viewport aspect ratio
     protected:
+        // the shader that draws the texture that is being drawn on
         Shader& drawTextureShader;
+        // the texture that is being drawn on
         const GLuint& baseColorTexture;
 
+        // the transform matrix to transform the texture correctly in the viewport
         QMatrix4x4 transformMatrix;
     };
 
-    virtual void drawForeground(QPainter* painter, const QRectF& rect) override;
-    virtual void drawBackground(QPainter* painter, const QRectF& rect) override;
-    virtual bool event(QEvent* event) override;
-    bool eventFilter(QObject* object, QEvent* event) override;
-    virtual void resizeEvent(QResizeEvent* event) override;
-    virtual void wheelEvent(QWheelEvent* event) override;
+    void viewMoved(int value);
 
     Shader drawTextureShader;
     const GLuint& baseColorTexture;
 
+    // the graphics scene of the graphics view
     GraphicsScene* graphicsScene;
+    // the opengl viewport of this graphicsview
     ViewportOpenGLWidget* openGLWidget;
 
-    qreal currentScale;
-
+    // the model loader that holds all information about the 3d model, here for the uv coordinates
     class ModelLoader& modelLoader;
 };
 
