@@ -26,7 +26,7 @@ void BvhTree::Initialize(std::vector<float>& modelData) {
         rootNode.Insert(counter / 9, triangle);
     }
 
-    //printf("rootNodeSize: %f %f %f %f %f %f\n", rootNode.mins[0], rootNode.maxs[0], rootNode.mins[1], rootNode.maxs[1], rootNode.mins[2], rootNode.maxs[2]);
+    printf("rootNodeSize: %f %f %f %f %f %f\n", rootNode.mins[0], rootNode.maxs[0], rootNode.mins[1], rootNode.maxs[1], rootNode.mins[2], rootNode.maxs[2]);
 
     rootNode.Sort(modelData);
 }
@@ -48,8 +48,8 @@ void BvhTree::Initialize1(std::vector<float>& modelData) {
 }
 
 BvhTree::Node::Node() :
-mins{ std::numeric_limits<float>().infinity(),std::numeric_limits<float>().infinity(),std::numeric_limits<float>().infinity() },
-maxs{ -std::numeric_limits<float>().infinity(),-std::numeric_limits<float>().infinity(),-std::numeric_limits<float>().infinity() },
+mins{ 0.0f,0.0f,0.0f/*std::numeric_limits<float>().max(),std::numeric_limits<float>().max(),std::numeric_limits<float>().max()*/ },
+maxs{ 0.0f,0.0f,0.0f/*-std::numeric_limits<float>().max(),-std::numeric_limits<float>().max(),-std::numeric_limits<float>().max()*/ },
 left(nullptr),
 right(nullptr),
 selfIndex(-1),
