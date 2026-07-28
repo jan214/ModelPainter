@@ -10,6 +10,7 @@
 #include <QMenuBar>
 #include <QFileDialog>
 #include <QTextStream>
+#include <QBuffer>
 
 #include "openglwidget.h"
 #include "dockwidget.h"
@@ -60,24 +61,6 @@ int main(int argc, char **argv)
         qssFile.close();
     }
 
-    QMenu* fileMenu = window.menuBar()->addMenu("File");
-    QAction* const testAction = fileMenu->addAction("Load Model...");
-    QObject::connect(testAction, &QAction::triggered, [&window]() {
-        auto fileContentReady = [](const QString& fileName, const QByteArray& fileContent) {
-            if (!fileName.isEmpty()) {
-                QString objText = QString::fromUtf8(fileContent);
-                QTextStream objTextStream(&objText);
-                ModelLoader::GetInstance().LoadModel(objTextStream);
-            }
-        };
-
-        QFileDialog::getOpenFileContent("Model Files(*.obj *.fbx);; All Files(*)", fileContentReady, &window);
-    });
-
-    QMenu* helpMenu = window.menuBar()->addMenu("Help");
-    QAction* const testAction2 = helpMenu->addAction("Contact");
-    QObject::connect(testAction2, &QAction::triggered, []() { ContactDialog::GetInstance().show(); });
-
     // this line needs to be moved once this architecture is better
     GLuint baseColorTexture;
 
@@ -105,6 +88,39 @@ int main(int argc, char **argv)
 
     graphicsViewDockWidget.setWidget(&graphicsViewWrapperWidget);
     window.addDockWidget(Qt::RightDockWidgetArea, &graphicsViewDockWidget);
+
+    // main window menu bar actions should be moved into custom QMainWindow class when created
+    QMenu* fileMenu = window.menuBar()->addMenu("File");
+    QAction* const loadModelAction = fileMenu->addAction("Load Model...");
+    QObject::connect(loadModelAction, &QAction::triggered, [&window]() {
+        auto fileContentReady = [](const QString& fileName, const QByteArray& fileContent) {
+            if (!fileName.isEmpty()) {
+                QString objText = QString::fromUtf8(fileContent);
+                QTextStream objTextStream(&objText);
+                ModelLoader::GetInstance().LoadModel(objTextStream);
+            }
+            };
+
+        QFileDialog::getOpenFileContent("Model Files(*.obj *.fbx);; All Files(*)", fileContentReady, &window);
+    });
+
+    QAction* const exportTextureAction = fileMenu->addAction("Export Texture...");
+    QObject::connect(exportTextureAction, &QAction::triggered, [&graphicsView]() {
+        QByteArray textureByteArray = graphicsView.GetBaseColorTexture();
+        QByteArray newByteArray;
+        QImage saveImage(reinterpret_cast<const uchar*>(textureByteArray.constData()), 512, 512, QImage::Format_RGBA8888);
+        QBuffer buffer(&newByteArray);
+        buffer.open(QIODevice::WriteOnly);
+        if (!saveImage.save(&buffer, "PNG")) {
+            printf("image could not be saved in format\n");
+        }
+
+        QFileDialog::saveFileContent(newByteArray, "texture");
+    });
+
+    QMenu* helpMenu = window.menuBar()->addMenu("Help");
+    QAction* const testAction2 = helpMenu->addAction("Contact");
+    QObject::connect(testAction2, &QAction::triggered, []() { ContactDialog::GetInstance().show(); });
 
     window.setCentralWidget(&openGLWidget);
     window.show();
