@@ -26,7 +26,7 @@ A lightweight cross-platform 3D model painting application built with **Qt 6.7.3
 * ## Building the Project
 
 ### Windows Desktop (CMake)
-Run the following commands from your terminal to build and package the desktop application:
+Create a folder in the same directory as the Qt's .pro file in the command line switch to the directory and run the following commands from your terminal to build and package the desktop application:
 ```cmd
 cmake -S .. -B build -DCMAKE_PREFIX_PATH="C:\Qt\Qt-6.7.3"
 cmake --build build --config Release
