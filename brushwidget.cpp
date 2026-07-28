@@ -5,17 +5,22 @@
 #include <QMouseEvent>
 #include <QStyleOption>
 #include <QLineEdit>
+#include <QMimeData>
+#include <QToolButton>
+#include <QImageReader>
+#include <QScrollBar>
 
 ColorPicker::ColorPicker(QWidget* parent) :
 QDialog(parent),
 mainLayout(this),
-colorPaletteImage(256, 256, QImage::Format_RGBA8888),
+colorPaletteImage(256, 256, QImage::Format_RGBA8888_Premultiplied),
 colorPaletteWrapper(this),
 colorSliderWrapper(this),
 colorSliderWrapperLayout(&colorSliderWrapper),
 redSlider("Red", &colorSliderWrapper),
 greenSlider("Green", &colorSliderWrapper),
 blueSlider("Blue", &colorSliderWrapper),
+brightnessSlider("Brightness", &colorSliderWrapper),
 closeButton("Ok"){
     setWindowFlags(Qt::Popup);
     mainLayout.setSpacing(0);
@@ -53,13 +58,20 @@ closeButton("Ok"){
 
     colorPaletteWrapper.installEventFilter(this);
 
-    QWidget* colorSliders[3] = { &redSlider, &greenSlider, &blueSlider };
-    SliderWidget::GetLongestNameplateWidth(colorSliders, 3);
+    constexpr int sliderCounter = 4;
+    QWidget* colorSliders[sliderCounter] = { &redSlider, &greenSlider, &blueSlider, &brightnessSlider };
+    SliderWidget::GetLongestNameplateWidth(colorSliders, sliderCounter);
+
+    // I might change this later by adding a new ColorSliderWidget class that can connect to a single colorChanged function
+    connect(&redSlider, &SliderWidget::changedValue, this, &ColorPicker::onRedColorChanged);
+    connect(&greenSlider, &SliderWidget::changedValue, this, &ColorPicker::onGreenColorChanged);
+    connect(&blueSlider, &SliderWidget::changedValue, this, &ColorPicker::onBlueColorChanged);
+    connect(&brightnessSlider, &SliderWidget::changedValue, this, &ColorPicker::onBrightnessChanged);
 
     colorSliderWrapperLayout.setSpacing(0);
-    colorSliderWrapperLayout.addWidget(&redSlider);
-    colorSliderWrapperLayout.addWidget(&greenSlider);
-    colorSliderWrapperLayout.addWidget(&blueSlider);
+    for (QWidget* const slider : colorSliders) {
+        colorSliderWrapperLayout.addWidget(slider);
+    }
 
     mainLayout.addWidget(&colorSliderWrapper);
 
@@ -74,6 +86,7 @@ bool ColorPicker::eventFilter(QObject* object, QEvent* event){
         if(event->type() == QEvent::MouseMove){
             if(QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event)){
                 if(mouseEvent->buttons() == Qt::LeftButton){
+                    printf("mouseEvent->buttons() == Qt::LeftButton\n");
                     const QPoint mousePosition = mouseEvent->pos();
 
                     if (!colorPaletteImage.rect().contains(mousePosition)) {
@@ -107,6 +120,7 @@ bool ColorPicker::eventFilter(QObject* object, QEvent* event){
                     newBackgroundPalette.setColor(QPalette::Button, selectedPixelColor);
                     closeButton.setPalette(newBackgroundPalette);
 
+                    event->accept();
                     return true;
                 }
             }
@@ -114,6 +128,37 @@ bool ColorPicker::eventFilter(QObject* object, QEvent* event){
     }
 
     return QDialog::eventFilter(object, event);
+}
+
+void ColorPicker::onRedColorChanged(double value, double maximum) {
+    QColor selectedPixelColor(value * 255, greenSlider.GetValue() * 255, blueSlider.GetValue() * 255);
+    emit colorChanged(selectedPixelColor);
+
+    QPalette newBackgroundPalette;
+    newBackgroundPalette.setColor(QPalette::Button, selectedPixelColor);
+    closeButton.setPalette(newBackgroundPalette);
+}
+
+void ColorPicker::onGreenColorChanged(double value, double maximum) {
+    QColor selectedPixelColor(redSlider.GetValue() * 255, value * 255, blueSlider.GetValue() * 255);
+    emit colorChanged(selectedPixelColor);
+
+    QPalette newBackgroundPalette;
+    newBackgroundPalette.setColor(QPalette::Button, selectedPixelColor);
+    closeButton.setPalette(newBackgroundPalette);
+}
+
+void ColorPicker::onBlueColorChanged(double value, double maximum) {
+    QColor selectedPixelColor(redSlider.GetValue() * 255, greenSlider.GetValue() * 255, value * 255);
+    emit colorChanged(selectedPixelColor);
+
+    QPalette newBackgroundPalette;
+    newBackgroundPalette.setColor(QPalette::Button, selectedPixelColor);
+    closeButton.setPalette(newBackgroundPalette);
+}
+
+void ColorPicker::onBrightnessChanged(double value, double maximum) {
+
 }
 
 ColorPickerWidget::ColorPickerWidget(QString text, ColorPicker& colorPicker, QWidget* parent) :
@@ -170,7 +215,7 @@ void ColorPickerWidget::paintEvent(QPaintEvent* event) {
 
 SliderWidget::SliderWidget(QString text, QWidget* parent, double minimum, double maximum, double value) :
 QWidget(parent),
-mainLayout(this),
+mainLayout(QBoxLayout::Direction::LeftToRight, this),
 sliderLabel(text, this),
 sliderProxyStyle(),
 slider(),
@@ -186,9 +231,12 @@ spinboxDrag({}) {
 
     sliderLabel.setObjectName("NameLabel");
     mainLayout.addWidget(&sliderLabel);
+
+    slider.setMouseTracking(true);
     slider.setOrientation(Qt::Horizontal);
     slider.setRange(0, 100);
     slider.setValue(value * 100);
+    slider.installEventFilter(this);
     mainLayout.addWidget(&slider);
     connect(&slider, &QSlider::valueChanged, this, &SliderWidget::OnSliderValueChanged);
 
@@ -210,6 +258,10 @@ SliderWidget::~SliderWidget(){
 
 }
 
+double SliderWidget::GetValue() {
+    return value;
+}
+
 void SliderWidget::OnSliderValueChanged(int sliderValue){
     value = minimum + (maximum - minimum) * (sliderValue / 100.0);
     QSignalBlocker sliderSpinboxSignalBlocker(sliderSpinbox);
@@ -218,10 +270,10 @@ void SliderWidget::OnSliderValueChanged(int sliderValue){
     emit changedValue(value, maximum);
 }
 
-void SliderWidget::OnSpinboxValueChanged(double value){
-    const int newValue = ((value - minimum)/(maximum - minimum))*100;
+void SliderWidget::OnSpinboxValueChanged(double spinboxValue){
+    value = ((spinboxValue - minimum)/(maximum - minimum));
     QSignalBlocker sliderSignalBlocker(slider);
-    slider.setValue(newValue);
+    slider.setValue(value * 100);
 
     emit changedValue(value, maximum);
 }
@@ -246,14 +298,15 @@ void SliderWidget::GetLongestNameplateWidth(QWidget* widgets[], const int size){
 }
 
 bool SliderWidget::eventFilter(QObject* object, QEvent* event) {
+    const QEvent::Type& type = event->type();
     if (spinboxDrag.lineEdit != nullptr && object == spinboxDrag.lineEdit) {
-        if (event->type() == QEvent::MouseButtonPress) {
+        if (type == QEvent::MouseButtonPress) {
             printf("sliderSpinbox MouseButtonPress\n");
             spinboxDrag.mouseDown = true;
             if (QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event)) {
                 spinboxDrag.mousePosition = mouseEvent->pos();
             }
-        } else if (spinboxDrag.mouseDown && event->type() == QEvent::MouseMove) {
+        } else if (spinboxDrag.mouseDown && type == QEvent::MouseMove) {
             if (QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event)) {
                 const QPoint mousePosition = mouseEvent->pos();
                 const QPoint delta = mousePosition - spinboxDrag.mousePosition;
@@ -269,8 +322,13 @@ bool SliderWidget::eventFilter(QObject* object, QEvent* event) {
                     spinboxDrag.mousePosition = mousePosition;
                 }
             }
-        } else if (event->type() == QEvent::MouseButtonRelease) {
+        } else if (type == QEvent::MouseButtonRelease) {
             spinboxDrag.mouseDown = false;
+        }
+    } else if (object == &slider && type == QEvent::MouseMove) {
+        // call slider update on mouse move to activate gradient based on mouse position
+        if (QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event)) {
+            slider.update();
         }
     }
 
@@ -281,7 +339,7 @@ void SliderWidget::resizeEvent(QResizeEvent* resizeEvent) {
     const int labelSpinboxWidth = sliderLabel.width() + sliderSpinbox.minimumWidth();
     const int sliderWidth = width() - labelSpinboxWidth;
     
-    if (250 < sliderWidth) {
+    if (/*250*/100 < sliderWidth) {
         slider.setVisible(true);
     } else {
         slider.setVisible(false);
@@ -299,7 +357,6 @@ void SliderWidget::paintEvent(QPaintEvent* event) {
 
 SliderWidget::SliderProxyStyle::SliderProxyStyle(QStyle* style) : 
 QProxyStyle(){
-
 }
 
 SliderWidget::SliderProxyStyle::~SliderProxyStyle() {
@@ -321,7 +378,10 @@ void SliderWidget::SliderProxyStyle::drawComplexControl(ComplexControl control, 
 
         QRect customGroove = grooveRect.adjusted(1,1,-1,-1);
 
-        QLinearGradient linearBackgroundGradient(QPoint(0, 0), QPoint(100, 0));
+        const QPoint& mousePosition = widget->cursor().pos();
+        const QPoint widgetSpaceMousePosition = widget->mapFromGlobal(mousePosition);
+
+        QLinearGradient linearBackgroundGradient(QPoint(0, 0), widgetSpaceMousePosition);
         linearBackgroundGradient.setColorAt(0.0, QColor(100,100,100));
         linearBackgroundGradient.setColorAt(1.0, QColor(50, 50, 50));
 
@@ -333,7 +393,9 @@ void SliderWidget::SliderProxyStyle::drawComplexControl(ComplexControl control, 
         filledRect.setRight(handleRect.center().x());
 
         const int filledPercentage = ((sliderOption->sliderValue - sliderOption->minimum) * 100) / (sliderOption->maximum - sliderOption->minimum);
+        QColor gradientStartColor;
         QColor finishedColor;
+        QColor midColor;
 
         if (filledPercentage > 95) {
             finishedColor = Qt::red;
@@ -357,22 +419,39 @@ void SliderWidget::SliderProxyStyle::drawComplexControl(ComplexControl control, 
             finishedColor = QColor(redChannel, greenChannel, blueChannel);
         }
 
-        QRadialGradient radialGradient(handleRect.center(), 100);
-        radialGradient.setColorAt(0.0, Qt::white);
-        radialGradient.setColorAt(1.0, finishedColor);
+        QRadialGradient radialGradient(widgetSpaceMousePosition, 50);
+        //radialGradient.setColorAt(0.0, Qt::white);
+        //radialGradient.setColorAt(1.0, finishedColor);
+
+        radialGradient.setColorAt(0.0, QColor("#E0F7FF"));
+        radialGradient.setColorAt(0.5, QColor("#00D2FF"));
+        radialGradient.setColorAt(1.0, QColor("#0A1128"));
+
+        //radialGradient.setColorAt(0.0, QColor("#FFFFFF"));
+        //radialGradient.setColorAt(0.5, QColor("#E0E0E0"));
+        //radialGradient.setColorAt(1.0, QColor("#1A1A1A"));
+
+        //radialGradient.setColorAt(0.0, QColor("#FFE5E5"));
+        //radialGradient.setColorAt(0.5, QColor("#FF003C"));
+        //radialGradient.setColorAt(1.0, QColor("#1F0006"));
 
         painter->setBrush(radialGradient);
         painter->drawRoundedRect(filledRect, 4.0, 4.0);
 
         QRect customGrooveFrame = grooveRect.adjusted(1,1,-1,-1);
 
-        QLinearGradient linearFrameGradient(QPoint(0, 0), QPoint(handleRect.center().x(), 100));
-        linearFrameGradient.setColorAt(0.0, Qt::white);
-        linearFrameGradient.setColorAt(1.0, Qt::lightGray);
+        QRadialGradient radialFrameGradient(widgetSpaceMousePosition, 100);
+        radialFrameGradient.setColorAt(0.0, Qt::white);
+        radialFrameGradient.setColorAt(1.0, Qt::lightGray);
+
+        //QLinearGradient linearFrameGradient(QPoint(0, 0), widgetSpaceMousePosition);
+        //linearFrameGradient.setColorAt(0.0, Qt::white);
+        //linearFrameGradient.setColorAt(1.0, Qt::lightGray);
 
         painter->setBrush(Qt::NoBrush);
         QPen gradientPen;
-        gradientPen.setBrush(linearFrameGradient);
+        gradientPen.setBrush(radialFrameGradient);
+        //gradientPen.setBrush(linearFrameGradient);
         gradientPen.setWidth(2);
         painter->setPen(gradientPen);
         painter->drawRoundedRect(customGrooveFrame, 2.0, 2.0);
@@ -398,7 +477,16 @@ QRect SliderWidget::SliderProxyStyle::subControlRect(ComplexControl control, con
     if (const QStyleOptionSlider* sliderOption = qstyleoption_cast<const QStyleOptionSlider*>(option)) {
         const int handleWidth = 24;
 
-        if (subcontrol == SC_SliderHandle) {
+        if (subcontrol == CC_Slider || subcontrol == SC_SliderGroove) {
+            if (sliderOption->orientation == Qt::Horizontal) {
+                QRect newRect = QProxyStyle::subControlRect(control, option, subcontrol, widget);
+                const int availableHeight = sliderOption->rect.height();
+                newRect.setY(0);
+                newRect.setHeight(availableHeight);
+
+                return newRect;
+            }
+        } else if (subcontrol == SC_SliderHandle) {
             const int sliderPosition = sliderPositionFromValue(sliderOption->minimum, sliderOption->maximum, sliderOption->sliderValue, sliderOption->rect.width() - handleWidth);
             return QRect(sliderPosition, 0, handleWidth, sliderOption->rect.height());
         }
@@ -407,29 +495,152 @@ QRect SliderWidget::SliderProxyStyle::subControlRect(ComplexControl control, con
     return QProxyStyle::subControlRect(control, option, subcontrol, widget);
 }
 
+BrushPreviewWidget::BrushPreviewWidget(QWidget* parent) :
+QWidget(parent),
+BrushProperties{ 0.0f,1.0f,Qt::white },
+BrushImage(128,128, QImage::Format_RGBA8888_Premultiplied),
+mainLayout(this),
+brushPreview(this),
+fileLabel("None", this),
+fileImage(QImage()) {
+    setAcceptDrops(true);
+
+    BrushImage = calculateBrushPreview();
+    brushPreview.setPixmap(QPixmap::fromImage(BrushImage));
+
+    mainLayout.addWidget(&brushPreview);
+
+    fileLabel.setReadOnly(true);
+    fileLabel.setClearButtonEnabled(true);
+    fileLabel.installEventFilter(this);
+    mainLayout.addWidget(&fileLabel);
+
+    if (clearButton = fileLabel.findChild<QToolButton*>()) {
+        printf("clearButton found\n");
+        clearButton->installEventFilter(this);
+    }
+}
+
+BrushPreviewWidget::~BrushPreviewWidget() {
+
+}
+
+void BrushPreviewWidget::UpdatePreview() {
+    BrushImage = calculateBrushPreview();
+    brushPreview.setPixmap(QPixmap::fromImage(BrushImage));
+}
+
+void BrushPreviewWidget::ClearPreview() {
+    fileImage = QImage();
+}
+
+bool BrushPreviewWidget::eventFilter(QObject* watched, QEvent* event) {
+    const QEvent::Type& type = event->type();
+
+    if (QLineEdit* const lineEdit = qobject_cast<QLineEdit*>(watched)) {
+        if (type == QEvent::MouseButtonPress) {
+            // open file dialog
+            printf("mouse button press\n");
+        } else if (type == QEvent::DragEnter) {
+            event->accept();
+            return true;
+        } else if (type == QEvent::Drop) {
+            //lineEdit->setText("file added");
+
+            if (QDropEvent* const dropEvent = static_cast<QDropEvent*>(event)) {
+                printf("dropEvent\n");
+                if (dropEvent->mimeData()->hasImage()) {
+                    printf("image file\n");
+                }
+                if (dropEvent->mimeData()->hasUrls()) {
+                    printf("url founds\n");
+                    for (const QUrl& fileUrl : dropEvent->mimeData()->urls()) {
+                        printf("url: %s\n", fileUrl.toString().toStdString().c_str());
+                        QString localFileUrl;
+#if defined(__EMSCRIPTEN__)
+                        localFileUrl = QString("/qt/tmp/%1").arg(fileUrl.fileName());
+#else
+                        localFileUrl = fileUrl.toLocalFile();
+#endif
+                        const QByteArray format = QImageReader::imageFormat(localFileUrl);
+                        if (!format.isEmpty()) {
+                            fileImage = QImage(localFileUrl);
+                            fileImage = fileImage.convertToFormat(QImage::Format_RGBA8888_Premultiplied);
+
+                            lineEdit->setText(localFileUrl);
+                            UpdatePreview();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            event->accept();
+            return true;
+        }
+    }
+
+    if (watched == clearButton) {
+        if (type == QEvent::MouseButtonRelease) {
+            if (QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event)) {
+                printf("mouseButtonRelease\n");
+                if (mouseEvent->button() == Qt::LeftButton) {
+                    printf("clear text\n");
+                    fileLabel.setText("None");
+                    ClearPreview();
+                }
+            }
+        }
+    }
+
+    return QWidget::eventFilter(watched, event);
+}
+
+QImage BrushPreviewWidget::calculateBrushPreview() {
+    const int previewSize = 128;
+    QImage brushPreview(previewSize, previewSize, QImage::Format_RGBA8888_Premultiplied);
+    brushPreview.fill(Qt::transparent);
+    QPainter painter(&brushPreview);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform);
+    painter.setPen(Qt::NoPen);
+    const int brushPreviewSize = 128;
+    if (fileImage.isNull()) {
+        painter.setBrush(BrushProperties.Color);
+        painter.drawEllipse(brushPreviewSize / 2 * (1.0f - BrushProperties.Size), brushPreviewSize / 2 * (1.0f - BrushProperties.Size), brushPreviewSize * BrushProperties.Size, brushPreviewSize * BrushProperties.Size);
+    } else {
+        painter.setBrush(Qt::NoBrush);
+        QImage customFile = fileImage.scaled(brushPreviewSize * BrushProperties.Size, brushPreviewSize * BrushProperties.Size, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        const int targetX = brushPreviewSize / 2 * (1.0f - BrushProperties.Size);
+        const int targetY = brushPreviewSize / 2 * (1.0f - BrushProperties.Size);
+        painter.drawImage(targetX, targetY, customFile);
+        painter.setCompositionMode(QPainter::CompositionMode_Multiply);
+        painter.fillRect(targetX, targetY, customFile.width(), customFile.height(), BrushProperties.Color);
+    }
+    const QSize smallSize(brushPreviewSize * (1.01f - BrushProperties.Smoothness), brushPreviewSize * (1.01f - BrushProperties.Smoothness));
+    const QImage smallImage = brushPreview.scaled(smallSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+    return smallImage.scaled(previewSize, previewSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+}
+
 BrushWidget::BrushWidget(QWidget* parent) :
 QWidget(parent),
 mainLayout(this),
 scrollArea(this),
 scrollAreaWrapperWidget(&scrollArea),
 scrollAreaWrapperWidgetLayout(&scrollAreaWrapperWidget),
-brushPreview(128,128, QImage::Format_RGBA8888),
-brushPreviewWrapper(this),
+brushPreviewWidget(this),
 colorPickerWidget("Color", ColorPicker::GetInstance(), this),
 smoothnessSlider("Smoothness", this),
-sizeSlider("Size", this, 0.0, 1.0, 1.0),
-brushProperties{ 0.0f, 1.0f } {
+sizeSlider("Size", this, 0.0, 1.0, 1.0) {
     setObjectName("BrushWidget");
 
     scrollAreaWrapperWidgetLayout.setSpacing(0);
 
     const ColorPicker& colorPicker = ColorPicker::GetInstance();
 
-    const QImage brushPreviewImage = calculateBrushPreview();
+    const QImage brushPreviewImage = brushPreviewWidget.BrushImage;
 
-    brushPreviewWrapper.setPixmap(QPixmap::fromImage(brushPreview));
-    brushPreviewWrapper.setFixedHeight(128);
-    scrollAreaWrapperWidgetLayout.addWidget(&brushPreviewWrapper);
+    scrollAreaWrapperWidgetLayout.addWidget(&brushPreviewWidget);
     connect(&colorPicker, &ColorPicker::colorChanged, this, &BrushWidget::onColorChanged);
     scrollAreaWrapperWidgetLayout.addWidget(&colorPickerWidget);
 
@@ -444,6 +655,7 @@ brushProperties{ 0.0f, 1.0f } {
     SliderWidget::GetLongestNameplateWidth(widgets, widgetsCount);
     scrollAreaWrapperWidgetLayout.addStretch();
 
+    scrollArea.verticalScrollBar()->setObjectName("BrushWidgetVerticalScrollBar");
     scrollArea.setWidgetResizable(true);
     scrollArea.setWidget(&scrollAreaWrapperWidget);
     mainLayout.addWidget(&scrollArea);
@@ -451,42 +663,27 @@ brushProperties{ 0.0f, 1.0f } {
 
 void BrushWidget::onValueChanged(double value, double maximum){
     printf("onSmoothnessChanged\n");
-    brushProperties.Smoothness = value;
-    const QImage previewImage = calculateBrushPreview();
-    brushPreviewWrapper.setPixmap(QPixmap::fromImage(previewImage));
+    brushPreviewWidget.BrushProperties.Smoothness = value;
+    brushPreviewWidget.UpdatePreview();
+    const QImage previewImage = brushPreviewWidget.BrushImage;
 
     emit BrushChanged(previewImage);
 }
 
 void BrushWidget::onColorChanged(QColor newColor){
-    brushPreview.fill(Qt::transparent);
-
     colorPickerWidget.SetPickerColor(newColor);
-    QImage previewImage = calculateBrushPreview();
-    brushPreviewWrapper.setPixmap(QPixmap::fromImage(previewImage));
+    brushPreviewWidget.BrushProperties.Color = newColor;
+    brushPreviewWidget.UpdatePreview();
+    QImage previewImage = brushPreviewWidget.BrushImage;
 
     emit BrushChanged(previewImage);
 }
 
 void BrushWidget::onSizeChanged(double value, double maximum) {
     printf("onSizeChanged\n");
-    brushProperties.Size = value;
-    const QImage previewImage = calculateBrushPreview();
-    brushPreviewWrapper.setPixmap(QPixmap::fromImage(previewImage));
+    brushPreviewWidget.BrushProperties.Size = value;
+    brushPreviewWidget.UpdatePreview();
+    const QImage previewImage = brushPreviewWidget.BrushImage;
 
     emit BrushChanged(previewImage);
-}
-
-QImage BrushWidget::calculateBrushPreview() {
-    brushPreview.fill(Qt::transparent);
-    QPainter painter(&brushPreview);
-    painter.setPen(Qt::NoPen);
-    const QColor pickerColor = colorPickerWidget.GetPickerColor();
-    painter.setBrush(pickerColor);
-    const int brushPreviewWidth = brushPreview.width();
-    const int brushPreviewHeight = brushPreview.height();
-    painter.drawEllipse(brushPreviewWidth / 2 * (1.0f - brushProperties.Size), brushPreviewHeight / 2 * (1.0f - brushProperties.Size), brushPreviewWidth * brushProperties.Size, brushPreviewHeight * brushProperties.Size);
-    const QSize smallSize(brushPreviewWidth * (1.01f - brushProperties.Smoothness), brushPreviewHeight * (1.01f - brushProperties.Smoothness));
-    const QImage smallImage = brushPreview.scaled(smallSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
-    return smallImage.scaled(brushPreview.size(), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
