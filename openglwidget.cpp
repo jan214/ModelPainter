@@ -374,7 +374,7 @@ void OpenGLWidget::initializeGL(){
         "void main(){\n"
             "vec4 albedoColor = texture(albedoTexture, aTextureCoordinate);\n"
             "vec4 positionColor = texture(positionTexture, aTextureCoordinate);\n"
-            "fragColor = albedoColor * positionColor;\n"
+            "fragColor = albedoColor;\n"
         "}";
 
     const float postProcessingQuadVertices[18] = { -1.0f,-1.0f,0.0f, -1.0f,1.0f,0.0f, 1.0f,1.0f,0.0f, -1.0f,-1.0f,0.0f, 1.0f,1.0f,0.0f, 1.0f,-1.0f,0.0f/*-0.5f,-0.5f,0.0f, -0.5f,0.5f,0.0f, 0.5f,0.5f,0.0f, -0.5f,-0.5f,0.0f, 0.5f,0.5f,0.0f, 0.5f,-0.5f,0.0f*/ };
