@@ -1,7 +1,7 @@
 #include "shader.h"
 
 Shader::Shader() :
-IsReady(false),
+context(),
 programIndex(0),
 vertexShader(0),
 fragmentShader(0),
@@ -15,8 +15,6 @@ void Shader::InitializeGLFunctions(QOpenGLContext* context){
     if(context == nullptr || context->surface() == nullptr)
         return;
 
-    context = context;
-
     context->makeCurrent(context->surface());
     initializeOpenGLFunctions();
     printf("Shader initialized GL function\n");
@@ -24,15 +22,15 @@ void Shader::InitializeGLFunctions(QOpenGLContext* context){
 
 void Shader::CreateProgram(const char* vertexShaderSource, const char* fragmentShaderSource){
     programIndex = glCreateProgram();
-    printf("createProgram\n");
+    printf("createProgram: %i\n", programIndex);
 
     vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
     glCompileShader(vertexShader);
 
-    GLint success;
+    GLint success = GL_FALSE;
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if(success == GL_FALSE){
+    if(!success){
         GLint logLength;
         glGetShaderiv(vertexShader, GL_INFO_LOG_LENGTH, &logLength);
         char* infoLog = new char[logLength];
@@ -44,8 +42,9 @@ void Shader::CreateProgram(const char* vertexShaderSource, const char* fragmentS
     glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
     glCompileShader(fragmentShader);
 
+    success = GL_FALSE;
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if(success == GL_FALSE){
+    if(!success){
         GLint logLength;
         glGetShaderiv(fragmentShader, GL_INFO_LOG_LENGTH, &logLength);
         char* infoLog = new char[logLength];
@@ -57,6 +56,11 @@ void Shader::CreateProgram(const char* vertexShaderSource, const char* fragmentS
     glAttachShader(programIndex, fragmentShader);
 
     glLinkProgram(programIndex);
+    success = GL_FALSE;
+    glGetProgramiv(programIndex, GL_LINK_STATUS, &success);
+    if (!success) {
+        printf("program linking failed\n");
+    }
 }
 
 bool Shader::UseProgram(){
@@ -99,9 +103,11 @@ void Shader::AddAttribute(const float* values, const int size, const char* name,
 
 void Shader::AddUniform(const float* values, const int size, const char* name, const GLboolean transpose){
     const GLuint uniformLocation = glGetUniformLocation(programIndex, name);
+    printf("uniformLocation %s: %d\n", name, uniformLocation);
 
     if(size == 1 && values == nullptr){
         glUniform1i(uniformLocation, uniforms.size());
+        uniformSamplers.push_back(uniformLocation);
     }else if(size == 1 && values != nullptr){
         glUniform1fv(uniformLocation, 1, values);
     }else if(size == 2){
@@ -114,6 +120,42 @@ void Shader::AddUniform(const float* values, const int size, const char* name, c
 
     uniforms.push_back(uniformLocation);
     printf("AddUniform\n");
+}
+
+GLuint Shader::AddSharedRenderTexture(const int width, const int height, const int sharedRenderTexturesSize) {
+    GLuint newRenderTexture;
+    glGenTextures(1, &newRenderTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, newRenderTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    printf("color attachment %i attached to framebuffer textureID: %d\n", GL_COLOR_ATTACHMENT0 + sharedRenderTexturesSize, newRenderTexture);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + sharedRenderTexturesSize, GL_TEXTURE_2D, newRenderTexture, 0);
+
+    return newRenderTexture;
+}
+
+GLuint Shader::AddDepthTexture(const int width, const int height) {
+    GLuint newDepthTexture;
+    glGenTextures(1, &newDepthTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, newDepthTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+
+    printf("depth buffer attached to framebuffer\n");
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, newDepthTexture, 0);
+
+    //sharedRenderTextures.push_back(newDepthTexture);
+    return newDepthTexture;
 }
 
 void Shader::ChangeAttribute(const int buffer, const float* values, const int size, const char* name, const int stride) {
@@ -157,4 +199,28 @@ void Shader::ChangeUniform(const int index, const float* values, const int size,
 
 void Shader::BindVAO(){
     glBindVertexArray(vao);
+}
+
+void Shader::BindTextures() {
+    const int texturesCount = textures.size();
+    for (int counter = 0; counter < texturesCount; counter++) {
+        glActiveTexture(GL_TEXTURE0 + counter);
+        const GLuint& textureId = textures[counter];
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        const GLint uniformLocation = uniformSamplers[counter];
+        glUniform1i(uniformLocation, counter);
+        printf("sharedTextureID: %i uniformLocation: %i texture: %i\n", textureId, uniformLocation, GL_TEXTURE0 + counter);
+    }
+}
+
+void Shader::BindSharedTextures(const std::vector<GLuint>& sharedTextures) {
+    const int sharedTexturesCount = sharedTextures.size();
+    for (int counter = 0; counter < sharedTexturesCount; counter++) {
+        glActiveTexture(GL_TEXTURE0 + counter);
+        const GLuint& textureId = sharedTextures[counter];
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        const GLint uniformLocation = uniformSamplers[counter];
+        glUniform1i(uniformLocation, counter);
+        printf("sharedTextureID: %i uniformLocation: %i texture: %i\n", textureId, uniformLocation, GL_TEXTURE0 + counter);
+    }
 }
