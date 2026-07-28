@@ -1,4 +1,4 @@
-/* QMainWindow */
+﻿/* QMainWindow */
 QMainWindow{
 	background-color: #121212;
 }
@@ -78,6 +78,71 @@ QDockWidget::title:hover{
 
 #BrushWidget SliderWidget QLabel{
 	color: #EEEEEE;
+}
+
+/* GraphicsView */
+#GraphicsView QScrollBar::add-page, #GraphicsView QScrollBar::sub-page{
+	background: none;
+}
+
+#GraphicsView QScrollBar{
+	background-color: #242424;
+	border: none;
+}
+
+#GraphicsView QScrollBar:vertical{
+	border: none;
+	margin-top: 0px;
+	margin-bottom: 0px;
+}
+
+#GraphicsView QScrollBar:horizontal{
+	border: none;
+	margin-left: 0px;
+	margin-right: 0px;
+}
+
+/* remove arrow buttons */
+#GraphicsView QScrollBar::sub-line:vertical{
+	height: 0px;
+}
+
+#GraphicsView QScrollBar::add-line:vertical{
+	height: 0px;
+}
+
+#GraphicsView QScrollBar::sub-line:horizontal{
+	width: 0px;
+}
+
+#GraphicsView QScrollBar::add-line:horizontal{
+	width: 0px;
+}
+
+#GraphicsView QScrollBar::handle{
+	background-color: #ff0000;
+	border-radius: 8px;
+	border: 1px solid transparent;
+}
+
+#GraphicsView QScrollBar{
+	background-color: transparent;
+}
+
+#GraphicsView QScrollBar::handle:vertical{
+	background-color: transparent;
+}
+
+#GraphicsView QScrollBar::handle:vertical:hover{
+	background-color: #0000ff;
+}
+
+#GraphicsView QScrollBar::handle:horizontal{
+	background-color: transparent;
+}
+
+#GraphicsView QScrollBar::handle:horizontal:hover{
+	background-color: #0000ff;
 }
 
 /* Contact Dialog */
