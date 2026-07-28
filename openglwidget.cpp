@@ -24,14 +24,15 @@ QOpenGLFunctions(),
 QOpenGLFunctions_3_0(),
 #endif
 defaultShader(),
-baseColorTextureSampler(),
+deferredObjectShader(),
+deferredPostProcessingShader(),
+deferredCustomFramebuffer(),
+sharedRenderTextures(),
 baseColorTexture(baseColorTexture),
 brushShader(),
 brushColorTexture(),
-mouseButtonClickPosition(),
-mousePosition{0.0f,0.0f},
 backFramebuffer(),
-//errorList(new ErrorList(this)),
+mousePosition{0.0f,0.0f},
 mouseDown(false),
 viewWidth(0.0f),
 viewHeight(0.0f),
@@ -132,10 +133,6 @@ cubeTextureCoordinates{0.0001f, 0.3334f,
                        0.9999f, 0.6669f},
 modelLoader(ModelLoader::GetInstance()),
 modelChanged(false),
-//customModelVertices(),
-modelSize(36),
-//customModelTextureCoordinates(),
-//customModelNormals()
 hitPoint(0.0f, 0.0f, 0.0f)
 {
     setAttribute(Qt::WA_AlwaysStackOnTop, false);
@@ -184,7 +181,7 @@ OpenGLWidget::~OpenGLWidget(){
     //delete errorList;
 }
 
-void OpenGLWidget::OnDrawChanged(const QVector2D mousePosition){
+void OpenGLWidget::OnDrawChanged(const QPointF mousePosition){
     printf("OpenGLWidget::OnDrawChanged\n");
     hitPoint.setX(mousePosition.x());
     hitPoint.setY(mousePosition.y());
@@ -200,17 +197,25 @@ void OpenGLWidget::OnBrushChanged(const QImage& brushTexture){
     brushShader.UseProgram();
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, brushColorTexture);
-    const int brushTextureSize = 128;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, brushTextureSize, brushTextureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, brushTexture.bits());
+    QImage newBrushTexture = brushTexture.mirrored(false, true);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    const QSize brushTextureSize = brushTexture.size();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, brushTextureSize.width(), brushTextureSize.height(), 0, GL_RGBA, GL_UNSIGNED_BYTE, newBrushTexture.constBits());
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    brushShader.ChangeUniform(1, nullptr, 1, GL_FALSE);
+    //brushShader.ChangeUniform(1, nullptr, 1, GL_FALSE);
 }
 
 void OpenGLWidget::initializeGL(){
     initializeOpenGLFunctions();
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
 
     printf("initializeGL\n");
 
+#if defined(__EMSCRIPTEN__)
+    // basic model renderer
     const char* vertexShaderSource = "#version 300 es\n"
                                      "precision highp float;\n"
                                      "in vec3 iPosition;\n"
@@ -220,7 +225,7 @@ void OpenGLWidget::initializeGL(){
                                      "out vec2 oTextureCoordinates;\n"
                                      "void main(){\n"
                                             "oTextureCoordinates = iTextureCoordinates;\n"
-                                            "vec4 position = viewMatrix * vec4(iPosition, 1.0);\n"
+                                            "vec4 position = vec4(iPosition, 1.0) * viewMatrix * perspectiveMatrix;\n"
                                             "gl_Position = position;\n"
                                      "}";
 
@@ -238,10 +243,10 @@ void OpenGLWidget::initializeGL(){
     defaultShader.InitializeGLFunctions(context());
     defaultShader.CreateProgram(vertexShaderSource, fragmentShaderSource);
     defaultShader.UseProgram();
-    //defaultShader.AddAttribute(&triangle[0], 9, "iPosition", 3);
+    defaultShader.AddAttribute(&triangle[0], 9, "iPosition", 3);
     defaultShader.AddAttribute(&cubeVertices[0], 108, "iPosition", 3);
 
-    //defaultShader.AddAttribute(&triangleTextureCoordinates[0], 6, "iTextureCoordinates", 2);
+    defaultShader.AddAttribute(&triangleTextureCoordinates[0], 6, "iTextureCoordinates", 2);
     defaultShader.AddAttribute(&cubeTextureCoordinates[0], 72, "iTextureCoordinates", 2);
 
     glGenTextures(1, &baseColorTexture);
@@ -261,17 +266,133 @@ void OpenGLWidget::initializeGL(){
     }
 
     const int textureSize = 512;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureSize, textureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, textureSize, textureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
 
     defaultShader.AddUniform(nullptr, 1, "baseColorTexture", GL_FALSE);
 
-    QMatrix4x4 perspectiveMat(&perspectiveMatrix[0]);
-    QMatrix4x4 viewMat(&transformMatrix[0]);
-    QMatrix4x4 transformMat = perspectiveMat*viewMat;
-
     defaultShader.AddUniform(&perspectiveMatrix[0], 16, "perspectiveMatrix", GL_FALSE);
-    defaultShader.AddUniform(transformMat.data(), 16, "viewMatrix", GL_FALSE);
+    defaultShader.AddUniform(&transformMatrix[16], 16, "viewMatrix", GL_FALSE);
+    // basic model renderer end
+#else
+    // deferred rendering shader
+    const char* deferredObjectVertexShaderSource = "#version 300 es\n"
+        "precision highp float;\n"
+        "in vec3 position;\n"
+        "in vec2 textureCoordinate;\n"
+        "out vec4 aPosition;\n"
+        "out vec2 aTextureCoordinate;\n"
+        "uniform mat4 modelMatrix;\n"
+        "uniform mat4 viewMatrix;\n"
+        "uniform mat4 perspectiveMatrix;\n"
+        "void main(){\n"
+            "aPosition = modelMatrix * vec4(position, 1.0);\n"
+            "aTextureCoordinate = textureCoordinate;\n"
+            "vec4 transformedPosition =  aPosition * viewMatrix * perspectiveMatrix;\n"
+            "gl_Position = transformedPosition;\n"
+        "}";
 
+    const char* deferredObjectFragmentShaderSource = "#version 300 es\n"
+        "precision highp float;\n"
+        "layout(location = 0)out vec4 albedoColor;\n"
+        "layout(location = 1)out vec4 positionColor;\n"
+        //"layout(location = 2)normalTexture;\n"
+        "in vec4 aPosition;\n"
+        "in vec2 aTextureCoordinate;\n"
+        "uniform sampler2D albedoTexture;\n"
+        //"uniform sampler2D normalTexture;\n"
+        "void main(){\n"
+            "albedoColor = texture(albedoTexture, aTextureCoordinate);\n"
+            "positionColor = vec4(aPosition.xyz, 1.0);\n"
+        "}";
+
+    deferredObjectShader.InitializeGLFunctions(context());
+    deferredObjectShader.CreateProgram(deferredObjectVertexShaderSource, deferredObjectFragmentShaderSource);
+    deferredObjectShader.UseProgram();
+    deferredObjectShader.AddAttribute(&cubeVertices[0], 108, "position", 3);
+    deferredObjectShader.AddAttribute(&cubeTextureCoordinates[0], 72, "textureCoordinate", 2);
+
+    const float modelMatrix[16] = { 1.0f,0.0f,0.0f,0.0f, 0.0f,1.0f,0.0f,0.0f, 0.0f,0.0f,1.0f,0.0f, 0.0f,0.0f,0.0f,1.0f };
+    deferredObjectShader.AddUniform(&modelMatrix[0], 16, "modelMatrix", GL_FALSE);
+    deferredObjectShader.AddUniform(&transformMatrix[0], 16, "viewMatrix", GL_FALSE);
+    deferredObjectShader.AddUniform(&perspectiveMatrix[0], 16, "perspectiveMatrix", GL_FALSE);
+    deferredObjectShader.AddUniform(nullptr, 1, "albedoTexture", GL_FALSE);
+    glGenTextures(1, &baseColorTexture);
+    printf("openglwidget baseColorTexture: %i\n", baseColorTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, baseColorTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // this is for testing this currently leaks memory
+    unsigned char* data = new unsigned char[4 * 512 * 512 * sizeof(unsigned char)];
+    for (int counter = 0; counter < 4 * 512 * 512; counter += 4) {
+        data[counter] = (unsigned char)0.0f;
+        data[counter + 1] = (unsigned char)0.0f;
+        data[counter + 2] = (unsigned char)255.0f;
+        data[counter + 3] = (unsigned char)255.0f;
+    }
+
+    const int textureSize = 512;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, textureSize, textureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data[0]);
+
+    glGenFramebuffers(1, &deferredCustomFramebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, deferredCustomFramebuffer);
+    const GLenum buffers[] = { GL_COLOR_ATTACHMENT0,GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, &buffers[0]);
+    sharedRenderTextures.push_back(deferredObjectShader.AddSharedRenderTexture(width(), height(), sharedRenderTextures.size()));
+    sharedRenderTextures.push_back(deferredObjectShader.AddSharedRenderTexture(width(), height(), sharedRenderTextures.size()));
+    deferredObjectShader.AddDepthTexture(width(), height());
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        printf("framebuffer not complete\n");
+    }
+    else {
+        printf("framebuffer completed\n");
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
+    //glBindTexture(GL_TEXTURE_2D, 0);
+    glBindVertexArray(0);
+
+    printf("deferredPostProcessingShader\n");
+    const char* deferredPostProcessingVertexShaderSource = "#version 300 es\n"
+        "precision highp float;\n"
+        "in vec3 position;\n"
+        "in vec2 textureCoordinate;\n"
+        "out vec2 aTextureCoordinate;\n"
+        "void main(){\n"
+            "aTextureCoordinate = textureCoordinate;\n"
+            "gl_Position = vec4(position, 1.0);\n"
+        "}";
+
+    const char* deferredPostProcessingFragmentShaderSource = "#version 300 es\n"
+        "precision highp float;\n"
+        "in vec2 aTextureCoordinate;\n"
+        "out vec4 fragColor;\n"
+        "uniform sampler2D albedoTexture;\n"
+        "uniform sampler2D positionTexture;\n"
+        "void main(){\n"
+            "vec4 albedoColor = texture(albedoTexture, aTextureCoordinate);\n"
+            "vec4 positionColor = texture(positionTexture, aTextureCoordinate);\n"
+            "fragColor = albedoColor * positionColor;\n"
+        "}";
+
+    const float postProcessingQuadVertices[18] = { -1.0f,-1.0f,0.0f, -1.0f,1.0f,0.0f, 1.0f,1.0f,0.0f, -1.0f,-1.0f,0.0f, 1.0f,1.0f,0.0f, 1.0f,-1.0f,0.0f/*-0.5f,-0.5f,0.0f, -0.5f,0.5f,0.0f, 0.5f,0.5f,0.0f, -0.5f,-0.5f,0.0f, 0.5f,0.5f,0.0f, 0.5f,-0.5f,0.0f*/ };
+    const float postProcessingQuadTextureCoordinates[12] = { 0.0f,0.0f, 0.0f,1.0f, 1.0f,1.0f, 0.0f,0.0f, 1.0f,1.0f, 1.0f,0.0f };
+
+    deferredPostProcessingShader.InitializeGLFunctions(context());
+    deferredPostProcessingShader.CreateProgram(deferredPostProcessingVertexShaderSource, deferredPostProcessingFragmentShaderSource);
+    deferredPostProcessingShader.UseProgram();
+    deferredPostProcessingShader.AddAttribute(&postProcessingQuadVertices[0], 18, "position", 3);
+    deferredPostProcessingShader.AddAttribute(&postProcessingQuadTextureCoordinates[0], 12, "textureCoordinate", 2);
+
+    deferredPostProcessingShader.AddUniform(nullptr, 1, "albedoTexture", GL_FALSE);
+    deferredPostProcessingShader.AddUniform(nullptr, 1, "positionTexture", GL_FALSE);
+
+    glBindVertexArray(0);
+    // deferred rendering shader end
+#endif
+    // brush rendering
     const char* brushVertexShaderSource = "#version 300 es\n"
                                             "precision highp float;\n"
                                             "in vec2 position;\n"
@@ -281,7 +402,7 @@ void OpenGLWidget::initializeGL(){
                                             "out vec2 aTextureCoordinates;\n"
                                             "void main(){\n"
                                                 "aTextureCoordinates = textureCoordinates;\n"
-                                                "vec2 brushPosition = position*0.01 + mouseClickPosition;\n"
+                                                "vec2 brushPosition = position*0.1 + mouseClickPosition;\n"
                                                 "colorHelper = vec4(brushPosition, 0.0, 1.0);\n"
                                                 "gl_Position = vec4(brushPosition, 0.0, 1.0);\n"
                                             "}";
@@ -315,6 +436,7 @@ void OpenGLWidget::initializeGL(){
 
     glGenFramebuffers(1, &backFramebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, backFramebuffer);
+    glBindTexture(GL_TEXTURE_2D, baseColorTexture);
 
     // this is for testing this currently leaks memory
     unsigned char* data2 = new unsigned char[4*512*512*sizeof(unsigned char)];
@@ -325,7 +447,7 @@ void OpenGLWidget::initializeGL(){
         data2[counter+3] = (unsigned char)255.0f;
     }
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, textureSize, textureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data2[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, textureSize, textureSize, 0, GL_RGBA, GL_UNSIGNED_BYTE, &data2[0]);
 
     glGenTextures(1, &brushColorTexture);
     glActiveTexture(GL_TEXTURE1);
@@ -347,7 +469,7 @@ void OpenGLWidget::initializeGL(){
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindTexture(GL_TEXTURE_2D, 0);
+    //glBindTexture(GL_TEXTURE_2D, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
 }
 
@@ -383,15 +505,21 @@ void OpenGLWidget::paintGL(){
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
 
     if (modelLoader.ModelChanged) {
+#if defined(__EMSCRIPTEN__)
         defaultShader.ChangeAttribute(0, modelLoader.GetVertices(), modelLoader.GetVerticesSize(), "iPosition", 3);
         defaultShader.ChangeAttribute(1, modelLoader.GetTextureCoordinates(), modelLoader.GetTextureCoordinatesSize(), "iTextureCoordinates", 2);
+#else
+        deferredObjectShader.ChangeAttribute(0, modelLoader.GetVertices(), modelLoader.GetVerticesSize(), "position", 3);
+        deferredObjectShader.ChangeAttribute(1, modelLoader.GetTextureCoordinates(), modelLoader.GetTextureCoordinatesSize(), "textureCoordinates", 2);
+#endif
         modelLoader.ModelChanged = false;
         printf("modelSize: %i\n", modelLoader.ModelSize);
     }
 
-    printf("----------------------\n");
-    defaultShader.BindVAO();
+#if defined(__EMSCRIPTEN__)
+    //printf("----------------------\n");
     defaultShader.UseProgram();
+    defaultShader.BindVAO();
     glClearColor(0.0f,0.0f,0.0f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -401,12 +529,8 @@ void OpenGLWidget::paintGL(){
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
 
-    QMatrix4x4 perspectiveMat(&perspectiveMatrix[0]);
-    QMatrix4x4 viewMat(&transformMatrix[0]);
-    QMatrix4x4 transformMat = perspectiveMat*viewMat;
-
     defaultShader.ChangeUniform(1, &perspectiveMatrix[0], 16, GL_FALSE);
-    defaultShader.ChangeUniform(2, transformMat.data(), 16, GL_FALSE);
+    defaultShader.ChangeUniform(2, &transformMatrix[0], 16, GL_FALSE);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, baseColorTexture);
@@ -417,6 +541,47 @@ void OpenGLWidget::paintGL(){
     glDisable(GL_CULL_FACE);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindVertexArray(0);
+#else
+    // deferred rendering
+    printf("deferredObjectShader\n");
+    glBindFramebuffer(GL_FRAMEBUFFER, deferredCustomFramebuffer);
+    deferredObjectShader.UseProgram();
+    deferredObjectShader.BindVAO();
+
+    const float identity[16] = { 1.0f,0.0f,0.0f,0.0f, 0.0f,1.0f,0.0f,0.0f, 0.0f,0.0f,1.0f,0.0f, 0.0f,0.0f,0.0f,1.0f };
+    deferredObjectShader.ChangeUniform(0, &identity[0], 16, GL_FALSE);
+    deferredObjectShader.ChangeUniform(1, &transformMatrix[0], 16, GL_FALSE);
+    deferredObjectShader.ChangeUniform(2, &perspectiveMatrix[0], 16, GL_FALSE);
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, baseColorTexture);
+    glUniform1i(0, 0);
+    deferredObjectShader.BindTextures();
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    const GLenum buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, &buffers[0]);
+
+    glEnable(GL_DEPTH_TEST);
+    glDrawArrays(GL_TRIANGLES, 0, modelLoader.ModelSize);
+    glDisable(GL_DEPTH_TEST);
+
+    //printf("deferredPostProcessingShader\n");
+    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
+    deferredPostProcessingShader.UseProgram();
+    deferredPostProcessingShader.BindVAO();
+
+    deferredPostProcessingShader.BindSharedTextures(sharedRenderTextures);
+
+    glClearColor(0.0f, 1.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glBindVertexArray(0);
+#endif
 }
 
 bool OpenGLWidget::event(QEvent* event){
@@ -779,10 +944,8 @@ void OpenGLWidget::resizeGL(int w, int h){
 
     defaultShader.UseProgram();
 //    defaultShader.ChangeUniform(1, &perspectiveMatrix[0], 16, GL_FALSE);
-    QMatrix4x4 perspectiveMat(&perspectiveMatrix[0]);
-    QMatrix4x4 viewMat(&transformMatrix[0]);
-    QMatrix4x4 transformMat = perspectiveMat*viewMat;
-    defaultShader.ChangeUniform(2, transformMat.data(), 16, GL_FALSE);
+    //defaultShader.ChangeUniform(1, &transformMatrix[0], 16, GL_FALSE);
+    //defaultShader.ChangeUniform(2, &perspectiveMatrix[0], 16, GL_FALSE);
     printf("resizeGL\n");
 
 //    for(int i = 0; i < 4; i++){
@@ -823,41 +986,40 @@ void OpenGLWidget::dropEvent(QDropEvent* event){
 
     const QMimeData* mimeData = event->mimeData();
 
-    if (mimeData != nullptr && mimeData->hasUrls()) {
-        printf("has Urls\n");
-        event->acceptProposedAction();
-        const QList<QUrl> mimeDataUrls = mimeData->urls();
+    if (mimeData == nullptr || !mimeData->hasUrls())
+        return;
+
+    printf("has Urls\n");
+    event->acceptProposedAction();
+    const QList<QUrl> mimeDataUrls = mimeData->urls();
         
 #if defined(__EMSCRIPTEN__)
-        const QString localFileName = QString("/qt/tmp/%1").arg(mimeDataUrls.at(0).fileName());
+    const QString localFileName = QString("/qt/tmp/%1").arg(mimeDataUrls.at(0).fileName());
 #else
-        const QString localFileName = mimeDataUrls.at(0).toLocalFile();
+    const QString localFileName = mimeDataUrls.at(0).toLocalFile();
 #endif
-        // use localFileName.toUtf8().data() if debug project configuration crashes from localFileName.toStdString().c_str()
-        printf("url: %s\n", localFileName.toStdString().c_str());
-        QFile modelFile(localFileName);
-        if (!modelFile.open(QIODevice::ReadOnly | QIODevice::Text))
-            return;
+    // use localFileName.toUtf8().data() if debug project configuration crashes from localFileName.toStdString().c_str()
+    printf("url: %s\n", localFileName.toStdString().c_str());
+    QFile modelFile(localFileName);
+    if (!modelFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
 
-        printf("file is open\n");
+    printf("file is open\n");
 
-        //customModelVertices.clear();
+    std::vector<float> vertices;
+    std::vector<float> textureCoordinates;
+    std::vector<float> normals;
 
-        std::vector<float> vertices;
-        std::vector<float> textureCoordinates;
-        std::vector<float> normals;
+    std::vector<int> indices;
+    std::vector<int> texturesIndices;
+    std::vector<int> normalsIndices;
 
-        std::vector<int> indices;
-        std::vector<int> texturesIndices;
-        std::vector<int> normalsIndices;
+    QTextStream modelFileText(&modelFile);
 
-        QTextStream modelFileText(&modelFile);
+    modelLoader.LoadModel(modelFileText);
 
-        modelLoader.LoadModel(modelFileText);
-
-        modelChanged = true;
-        update();
-    }
+    modelChanged = true;
+    update();
 }
 
 void OpenGLWidget::wheelEvent(QWheelEvent* event){
