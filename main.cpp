@@ -72,6 +72,7 @@ int main(int argc, char **argv)
     BrushWidget brushWidget(&brushDockWidget);
 
     QObject::connect(&brushWidget, &BrushWidget::BrushChanged, &openGLWidget, &OpenGLWidget::OnBrushChanged, Qt::QueuedConnection);
+    brushWidget.InitializeBrushImage();
 
     brushDockWidget.setWidget(&brushWidget);
     window.addDockWidget(Qt::RightDockWidgetArea, &brushDockWidget);

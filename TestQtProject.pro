@@ -2,10 +2,11 @@ QT += core gui widgets opengl openglwidgets
 
 CONFIG += c++11
 
-#wasm: {
+wasm: {
 #    QMAKE_LFLAGS += -sUSE_WEBGL2=1
 #    QMAKE_CXXFLAGS += -sUSE_WEBGL2=1
-#}
+#     QMAKE_LFLAGS += -sFULL_ES3=1
+}
 
 SOURCES += \
     brushwidget.cpp \

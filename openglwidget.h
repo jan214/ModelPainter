@@ -61,11 +61,16 @@ protected:
     // raycast to triangle detection
     bool raycast(float mousePosition[2], const float triangle[9], const float triangleTextureCoordinates[6], QVector3D& outHitPoint, float& distance);
 
+    inline void calculateTransformMatrix(const float x, const float y, const float z, const float rx, const float ry, const float rz, float* outTransformMatrix);
+
+#if defined(__EMSCRIPTEN__)
     Shader defaultShader;                       // the default forward rendering shader
+#else
     Shader deferredObjectShader;                // the object phase shader for deferred rendering
     Shader deferredPostProcessingShader;        // the lighting phase shader for deferred rendering
     GLuint deferredCustomFramebuffer;           // the custom framebuffer that deferred rendering uses to render the gbuffers
     std::vector<GLuint> sharedRenderTextures;   // render textures that are shared between shaders
+#endif
     GLuint& baseColorTexture;                   // the texture that is being drawn
     Shader brushShader;                         // the shader for the brush
     GLuint brushColorTexture;                   // the texture for the brush
