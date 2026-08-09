@@ -89,6 +89,7 @@ protected:
 
     // the model loader that holds all information about the 3d model, here for the uv coordinates
     class ModelLoader& modelLoader;
+    const float cubeTextureCoordinates[72];
 };
 
 #endif // GRAPHICSVIEW_H

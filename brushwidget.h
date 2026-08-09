@@ -166,6 +166,8 @@ public:
     explicit BrushWidget(QWidget* parent = nullptr);
     virtual ~BrushWidget(){}
 
+    void InitializeBrushImage();
+
 signals:
     void BrushChanged(const QImage& brushTexture);
 

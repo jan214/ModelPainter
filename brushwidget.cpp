@@ -661,6 +661,10 @@ sizeSlider("Size", this, 0.0, 1.0, 1.0) {
     mainLayout.addWidget(&scrollArea);
 }
 
+void BrushWidget::InitializeBrushImage() {
+    emit BrushChanged(brushPreviewWidget.BrushImage);
+}
+
 void BrushWidget::onValueChanged(double value, double maximum){
     printf("onSmoothnessChanged\n");
     brushPreviewWidget.BrushProperties.Smoothness = value;

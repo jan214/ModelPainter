@@ -523,11 +523,11 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
     }
 
     //for (int counter = 0; counter < customModelVertices.size(); counter += 3) {
-    //    printf("vertex %i: %f %f %f\n", counter, customModelVertices[counter], customModelVertices[counter + 1], customModelVertices[counter + 2]);
+    //    printf("%f, %f, %f,\n", customModelVertices[counter], customModelVertices[counter + 1], customModelVertices[counter + 2]);
     //}
 
     //for (int counter = 0; counter < texturesIndices.size(); counter++) {
-    //    printf("%i texture %i %i: %f %f\n", texturesIndices[counter], texturesIndices[counter] * 2, texturesIndices[counter] * 2 + 1, customModelTextureCoordinates[texturesIndices[counter] * 2], customModelTextureCoordinates[texturesIndices[counter] * 2 + 1]);
+    //    printf("%f, %f,\n", customModelTextureCoordinates[texturesIndices[counter] * 2], customModelTextureCoordinates[texturesIndices[counter] * 2 + 1]);
     //}
 
     //for (int counter = 0; counter < customModelTextureCoordinates.size(); counter += 2) {

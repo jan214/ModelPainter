@@ -18,7 +18,43 @@ drawTextureShader(),
 baseColorTexture(baseColorTexture),
 graphicsScene(new GraphicsScene(this)),
 openGLWidget(new ViewportOpenGLWidget(drawTextureShader, baseColorTexture, QMatrix4x4(transform()), this)),
-modelLoader(ModelLoader::GetInstance()){
+modelLoader(ModelLoader::GetInstance()),
+cubeTextureCoordinates{ 0.0001f, 0.3334f,
+                       0.3334f, 0.0001f,
+                       0.3334f, 0.3334f,
+                       0.6666f, 0.3334f,
+                       0.9999f, 0.0001f,
+                       0.9999f, 0.3334f,
+                       0.6666f, 0.6669f,
+                       0.3334f, 0.3336f,
+                       0.6666f, 0.3336f,
+                       0.3334f, 0.6669f,
+                       0.0001f, 0.3336f,
+                       0.3334f, 0.3336f,
+                       0.3334f, 0.0001f,
+                       0.6666f, 0.3334f,
+                       0.3334f, 0.3334f,
+                       0.6666f, 0.3336f,
+                       0.9999f, 0.6669f,
+                       0.6666f, 0.6669f,
+                       0.0001f, 0.3334f,
+                       0.0001f, 0.0001f,
+                       0.3334f, 0.0001f,
+                       0.6666f, 0.3334f,
+                       0.6666f, 0.0001f,
+                       0.9999f, 0.0001f,
+                       0.6666f, 0.6669f,
+                       0.3334f, 0.6669f,
+                       0.3334f, 0.3336f,
+                       0.3334f, 0.6669f,
+                       0.0001f, 0.6669f,
+                       0.0001f, 0.3336f,
+                       0.3334f, 0.0001f,
+                       0.6666f, 0.0001f,
+                       0.6666f, 0.3334f,
+                       0.6666f, 0.3336f,
+                       0.9999f, 0.3336f,
+                       0.9999f, 0.6669f } {
     setObjectName("GraphicsView");
 
     // for some reason removing the scrollbars messed up the drawing when zooming in
@@ -32,10 +68,11 @@ modelLoader(ModelLoader::GetInstance()){
     connect(horizontalScrollBar(), &QScrollBar::valueChanged, this, &GraphicsView::viewMoved);
 
     setScene(graphicsScene);
+    setViewport(openGLWidget);
 
+    centerOn(mapFromScene(0.0, 0.0));
     setResizeAnchor(QGraphicsView::AnchorViewCenter);
     setViewportUpdateMode(QGraphicsView::FullViewportUpdate);
-    setViewport(openGLWidget);
 
     viewport()->setMouseTracking(true);
     viewport()->installEventFilter(this);
@@ -45,6 +82,8 @@ modelLoader(ModelLoader::GetInstance()){
     QToolButton settingsButton(this);
 
     modelLoader.Subscribe([&]() {  viewport()->update(); });
+
+    scale(0.7, 0.7);
 }
 
 QByteArray GraphicsView::GetBaseColorTexture() {
@@ -55,6 +94,7 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
     painter->save();
 
     QPen pen(Qt::black);
+    pen.setCosmetic(true);
     painter->setPen(pen);
     painter->drawText(10,10,"Test");
 
@@ -80,6 +120,28 @@ void GraphicsView::drawForeground(QPainter* painter, const QRectF& rect){
                     continue;
                 }
                 const QPointF point(modelLoader.GetTextureCoordinates()[counter] * textureWidth, textureHeight - modelLoader.GetTextureCoordinates()[counter + 1] * textureHeight);
+                path.lineTo(point);
+            }
+
+            painter->drawPath(path);
+        } else {
+            QPainterPath path;
+            const float textureWidth = 512.0f;
+            const float textureHeight = 512.0f;
+            for (int counter = 0; counter < 72; counter += 2) {
+                if (counter == 0) {
+                    const QPointF point(cubeTextureCoordinates[counter] * textureWidth, textureHeight - cubeTextureCoordinates[counter + 1] * textureHeight);
+                    path.moveTo(point);
+                    continue;
+                }
+                if (counter % 6 == 0) {
+                    const QPointF oldPoint(cubeTextureCoordinates[counter - 6] * textureWidth, textureHeight - cubeTextureCoordinates[counter - 6 + 1] * textureHeight);
+                    path.lineTo(oldPoint);
+                    const QPointF point(cubeTextureCoordinates[counter] * textureWidth, textureHeight - cubeTextureCoordinates[counter + 1] * textureHeight);
+                    path.moveTo(point);
+                    continue;
+                }
+                const QPointF point(cubeTextureCoordinates[counter] * textureWidth, textureHeight - cubeTextureCoordinates[counter + 1] * textureHeight);
                 path.lineTo(point);
             }
 
@@ -119,9 +181,10 @@ bool GraphicsView::event(QEvent* event){
         QMouseEvent* const mouseEvent = static_cast<QMouseEvent*>(event);
         if (mouseEvent->buttons() == Qt::LeftButton) {
             const QPointF scenePosition = mapToScene(mouseEvent->pos());
+            printf("scenePosition: %f %f\n", scenePosition.x(), scenePosition.y());
             const float textureSize = 512.0f;
             const QPointF mousePosition(2.0f * (scenePosition.x() / textureSize) - 1.0f, 1.0f - 2.0f * (scenePosition.y() / textureSize));
-            printf("mousePosition: %f %f\n", mousePosition.x(), mousePosition.y());
+            printf("GraphicsView::event Qt::LeftButton mousePosition: %f %f\n", mousePosition.x(), mousePosition.y());
 
             emit drawChanged(mousePosition);
             return true;
@@ -140,6 +203,7 @@ bool GraphicsView::eventFilter(QObject* object, QEvent* event){
                     const QPointF scenePosition = mapToScene(mouseEvent->pos());
                     const float textureSize = 512.0f;
                     const QPointF mousePosition(2.0f * (scenePosition.x() / textureSize) - 1.0f, 1.0f - 2.0f * (scenePosition.y() / textureSize));
+                    printf("GraphicsView::eventFilter QEvent::MouseMove mousePosition: %f %f\n", mousePosition.x(), mousePosition.y());
 
                     emit drawChanged(mousePosition);
                     return true;
@@ -183,7 +247,7 @@ void GraphicsView::wheelEvent(QWheelEvent* event){
             scale(1.01, 1.01);
         }
     }else{
-        if(transform().m11() < -10.1 || transform().m22() < -10.1){
+        if(transform().m11() < 0.1 || transform().m22() < 0.1){
         }else{
             scale(1.0/1.01, 1.0/1.01);
         }
@@ -191,20 +255,6 @@ void GraphicsView::wheelEvent(QWheelEvent* event){
 
     const QPointF sceneCenter = mapToScene(viewport()->rect().center());
     centerOn(sceneCenter);
-
-    //openGLWidget->CurrentScale = transform().m11();
-
-    //printf("scale: %f %f\n", transform().m11(), transform().m22());
-
-    //const QPointF viewCenterPosition = mapToScene(viewport()->rect().center());
-    //printf("viewCenterPosition: %f %f\n", viewCenterPosition.x(), viewCenterPosition.y());
-
-    //QTransform newTransform;
-    //newTransform.setMatrix(512.0 / (qreal)viewport()->width(), transform().m12(), transform().m13(), transform().m21(), 512.0 / (qreal)viewport()->height(), transform().m23(), 2.0 * (viewCenterPosition.x() / viewport()->width()) - 1.0, 2.0 * (viewCenterPosition.y() / viewport()->height()) - 1.0, transform().m33());
-
-    //emit TransformChanged(newTransform);
-
-    //viewport()->update();
 
     event->accept();
 }
@@ -294,7 +344,7 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
                                      "out vec2 aTextureCoordinates;\n"
                                      "void main(){\n"
                                         "aTextureCoordinates = textureCoordinates;\n"
-                                        "vec4 transformedPosition = transformMatrix * vec4(position.x * 256.0 + 256.0, (position.y * 256.0 + 256.0) * aspectRatio, 0.0, 1.0);\n"
+                                        "vec4 transformedPosition = transformMatrix * vec4(position.x * 256.0 + 256.0, (position.y * 256.0 + 256.0), 0.0, 1.0);\n"
                                         "gl_Position = vec4(transformedPosition.xy, 0.0, 1.0);\n"
                                      "}";
 
@@ -322,9 +372,9 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
 
     drawTextureShader.AddUniform(nullptr, 1, "textureSampler", GL_FALSE);
 
-    for(int i = 0; i < 4; i++){
-        printf("transformMatrix: %f %f %f %f\n", transformMatrix.data()[i*4], transformMatrix.data()[i*4+1], transformMatrix.data()[i*4+2], transformMatrix.data()[i*4+3]);
-    }
+    //for(int i = 0; i < 4; i++){
+    //    printf("transformMatrix: %f %f %f %f\n", transformMatrix.data()[i*4], transformMatrix.data()[i*4+1], transformMatrix.data()[i*4+2], transformMatrix.data()[i*4+3]);
+    //}
     drawTextureShader.AddUniform(transformMatrix.data(), 16, "transformMatrix", GL_FALSE);
     AspectRatio = ViewHeight/ViewWidth;
     drawTextureShader.AddUniform(&AspectRatio, 1, "aspectRatio", GL_FALSE);
@@ -374,11 +424,11 @@ void GraphicsView::ViewportOpenGLWidget::resizeGL(int w, int h){
 void GraphicsView::ViewportOpenGLWidget::OnTransformChanged(const QMatrix4x4 transform){
     transformMatrix = QMatrix4x4(transform);
 
-    printf("transformMatrix\n");
-    printf("%f %f %f %f\n", transformMatrix.data()[0], transformMatrix.data()[1], transformMatrix.data()[2], transformMatrix.data()[3]);
-    printf("%f %f %f %f\n", transformMatrix.data()[4], transformMatrix.data()[5], transformMatrix.data()[6], transformMatrix.data()[7]);
-    printf("%f %f %f %f\n", transformMatrix.data()[8], transformMatrix.data()[9], transformMatrix.data()[10], transformMatrix.data()[11]);
-    printf("%f %f %f %f\n", transformMatrix.data()[12], transformMatrix.data()[13], transformMatrix.data()[14], transformMatrix.data()[15]);
+    //printf("transformMatrix\n");
+    //printf("%f %f %f %f\n", transformMatrix.data()[0], transformMatrix.data()[1], transformMatrix.data()[2], transformMatrix.data()[3]);
+    //printf("%f %f %f %f\n", transformMatrix.data()[4], transformMatrix.data()[5], transformMatrix.data()[6], transformMatrix.data()[7]);
+    //printf("%f %f %f %f\n", transformMatrix.data()[8], transformMatrix.data()[9], transformMatrix.data()[10], transformMatrix.data()[11]);
+    //printf("%f %f %f %f\n", transformMatrix.data()[12], transformMatrix.data()[13], transformMatrix.data()[14], transformMatrix.data()[15]);
 }
 
 QByteArray GraphicsView::ViewportOpenGLWidget::GetBaseColorTexture() {

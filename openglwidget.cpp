@@ -23,11 +23,14 @@ QOpenGLFunctions(),
 #else
 QOpenGLFunctions_3_0(),
 #endif
+#if defined(__EMSCRIPTEN__)
 defaultShader(),
+#else
 deferredObjectShader(),
 deferredPostProcessingShader(),
 deferredCustomFramebuffer(),
 sharedRenderTextures(),
+#endif
 baseColorTexture(baseColorTexture),
 brushShader(),
 brushColorTexture(),
@@ -194,6 +197,7 @@ void OpenGLWidget::OnDrawChanged(const QPointF mousePosition){
 }
 
 void OpenGLWidget::OnBrushChanged(const QImage& brushTexture){
+    makeCurrent();
     brushShader.UseProgram();
     glActiveTexture(GL_TEXTURE1);
     glBindTexture(GL_TEXTURE_2D, brushColorTexture);
@@ -604,7 +608,7 @@ bool OpenGLWidget::event(QEvent* event){
             float distance = std::numeric_limits<float>().infinity();
 //            raycast(&mousePosition[0], &triangle[0], &triangleTextureCoordinates[0], hitPoint);
             if (modelLoader.GetVerticesSize() == 0) {
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < 12; i++) {
                     const float triangleVertices[9] = { cubeVertices[i * 9],cubeVertices[i * 9 + 1],cubeVertices[i * 9 + 2],
                                                        cubeVertices[i * 9 + 3],cubeVertices[i * 9 + 4],cubeVertices[i * 9 + 5],
                                                        cubeVertices[i * 9 + 6],cubeVertices[i * 9 + 7],cubeVertices[i * 9 + 8] };
@@ -732,36 +736,7 @@ bool OpenGLWidget::event(QEvent* event){
                 }
                 printf("viewRotation: %f %f\n", viewRotation[0], viewRotation[1]);
 
-                viewPosition[0] = 0.0f + distance * sinf(viewRotation[1]) * cosf(viewRotation[0]);
-                viewPosition[1] = 0.0f + distance * sinf(viewRotation[0]);
-                viewPosition[2] = 0.0f + distance * cosf(viewRotation[1]) * cosf(viewRotation[0]);
-
-                QVector3D viewPos(viewPosition[0], viewPosition[1], viewPosition[2]);
-                QVector3D forwardDirection(-viewPosition[0], -viewPosition[1], -viewPosition[2]);
-                forwardDirection.normalize();
-                QVector3D worldUp(0.0f,1.0f,0.0f);
-                QVector3D rightDirection(QVector3D::crossProduct(forwardDirection, worldUp));
-                rightDirection.normalize();
-                QVector3D upDirection(QVector3D::crossProduct(rightDirection, forwardDirection));
-
-                printf("viewPosition: %f %f %f\n", viewPosition[0], viewPosition[1], viewPosition[2]);
-
-                transformMatrix[0] = rightDirection.x();
-                transformMatrix[1] = rightDirection.y();
-                transformMatrix[2] = rightDirection.z();
-                transformMatrix[3] = -QVector3D::dotProduct(rightDirection, viewPos);
-                transformMatrix[4] = upDirection.x();
-                transformMatrix[5] = upDirection.y();
-                transformMatrix[6] = upDirection.z();
-                transformMatrix[7] = -QVector3D::dotProduct(upDirection, viewPos);
-                transformMatrix[8] = -forwardDirection.x();
-                transformMatrix[9] = -forwardDirection.y();
-                transformMatrix[10] = -forwardDirection.z();
-                transformMatrix[11] = QVector3D::dotProduct(forwardDirection, viewPos);
-                transformMatrix[12] = 0.0f;
-                transformMatrix[13] = 0.0f;
-                transformMatrix[14] = 0.0f;
-                transformMatrix[15] = 1.0f;
+                calculateTransformMatrix(0, 0, 0, viewRotation[0], viewRotation[1], viewRotation[2], transformMatrix);
 
 //                printf("moveDirection: %f %f - %f\n", moveDirection[0], mousex, mousePosition[0]);
             }else if(!(mouseEvent->modifiers() & Qt::ShiftModifier) && mouseEvent->buttons() == Qt::LeftButton){
@@ -769,7 +744,7 @@ bool OpenGLWidget::event(QEvent* event){
                 float distance = std::numeric_limits<float>().infinity();
 //                raycast(&mousePosition[0], &triangle[0], &triangleTextureCoordinates[0], hitPoint);
                 if (modelLoader.GetVerticesSize() == 0) {
-                    for (int i = 0; i < 4; i++) {
+                    for (int i = 0; i < 12; i++) {
                         const float triangleVertices[9] = { cubeVertices[i * 9],cubeVertices[i * 9 + 1],cubeVertices[i * 9 + 2],
                                                            cubeVertices[i * 9 + 3],cubeVertices[i * 9 + 4],cubeVertices[i * 9 + 5],
                                                            cubeVertices[i * 9 + 6],cubeVertices[i * 9 + 7],cubeVertices[i * 9 + 8] };
@@ -892,36 +867,7 @@ bool OpenGLWidget::event(QEvent* event){
             }else if(QPinchGesture* const pinch = static_cast<QPinchGesture*>(gestureEvent->gesture(Qt::PinchGesture))){
                 distance = pinch->totalScaleFactor();
 
-                viewPosition[0] = 0.0f + distance * sinf(viewRotation[1]) * cosf(viewRotation[0]);
-                viewPosition[1] = 0.0f + distance * sinf(viewRotation[0]);
-                viewPosition[2] = 0.0f + distance * cosf(viewRotation[1]) * cosf(viewRotation[0]);
-
-                QVector3D viewPos(viewPosition[0], viewPosition[1], viewPosition[2]);
-                QVector3D forwardDirection(-viewPosition[0], -viewPosition[1], -viewPosition[2]);
-                forwardDirection.normalize();
-                QVector3D worldUp(0.0f,1.0f,0.0f);
-                QVector3D rightDirection(QVector3D::crossProduct(forwardDirection, worldUp));
-                rightDirection.normalize();
-                QVector3D upDirection(QVector3D::crossProduct(rightDirection, forwardDirection));
-
-                printf("viewPosition: %f %f %f\n", viewPosition[0], viewPosition[1], viewPosition[2]);
-
-                transformMatrix[0] = rightDirection.x();
-                transformMatrix[1] = upDirection.x();
-                transformMatrix[2] = -forwardDirection.x();
-                transformMatrix[3] = -QVector3D::dotProduct(rightDirection, viewPos);
-                transformMatrix[4] = rightDirection.y();
-                transformMatrix[5] = upDirection.y();
-                transformMatrix[6] = -forwardDirection.y();
-                transformMatrix[7] = -QVector3D::dotProduct(upDirection, viewPos);
-                transformMatrix[8] = rightDirection.z();
-                transformMatrix[9] = upDirection.z();
-                transformMatrix[10] = -forwardDirection.z();
-                transformMatrix[11] = QVector3D::dotProduct(forwardDirection, viewPos);
-                transformMatrix[12] = 0.0f;
-                transformMatrix[13] = 0.0f;
-                transformMatrix[14] = 0.0f;
-                transformMatrix[15] = 1.0f;
+                calculateTransformMatrix(0, 0, 0, viewRotation[0], viewRotation[1], viewRotation[2], transformMatrix);
 
                 printf("pinch distance: %f\n", distance);
                 update();
@@ -942,7 +888,7 @@ void OpenGLWidget::resizeGL(int w, int h){
 
     perspectiveMatrix[0] = fovScale / aspectScale;
 
-    defaultShader.UseProgram();
+    //defaultShader.UseProgram();
 //    defaultShader.ChangeUniform(1, &perspectiveMatrix[0], 16, GL_FALSE);
     //defaultShader.ChangeUniform(1, &transformMatrix[0], 16, GL_FALSE);
     //defaultShader.ChangeUniform(2, &perspectiveMatrix[0], 16, GL_FALSE);
@@ -1035,36 +981,7 @@ void OpenGLWidget::wheelEvent(QWheelEvent* event){
         distance += 0.5f;
     }
 
-    viewPosition[0] = 0.0f + distance * sinf(viewRotation[1]) * cosf(viewRotation[0]);
-    viewPosition[1] = 0.0f + distance * sinf(viewRotation[0]);
-    viewPosition[2] = 0.0f + distance * cosf(viewRotation[1]) * cosf(viewRotation[0]);
-
-    QVector3D viewPos(viewPosition[0], viewPosition[1], viewPosition[2]);
-    QVector3D forwardDirection(-viewPosition[0], -viewPosition[1], -viewPosition[2]);
-    forwardDirection.normalize();
-    QVector3D worldUp(0.0f, 1.0f, 0.0f);
-    QVector3D rightDirection(QVector3D::crossProduct(forwardDirection, worldUp));
-    rightDirection.normalize();
-    QVector3D upDirection(QVector3D::crossProduct(rightDirection, forwardDirection));
-
-    printf("viewPosition: %f %f %f\n", viewPosition[0], viewPosition[1], viewPosition[2]);
-
-    transformMatrix[0] = rightDirection.x();
-    transformMatrix[1] = rightDirection.y();
-    transformMatrix[2] = rightDirection.z();
-    transformMatrix[3] = -QVector3D::dotProduct(rightDirection, viewPos);
-    transformMatrix[4] = upDirection.x();
-    transformMatrix[5] = upDirection.y();
-    transformMatrix[6] = upDirection.z();
-    transformMatrix[7] = -QVector3D::dotProduct(upDirection, viewPos);
-    transformMatrix[8] = -forwardDirection.x();
-    transformMatrix[9] = -forwardDirection.y();
-    transformMatrix[10] = -forwardDirection.z();
-    transformMatrix[11] = QVector3D::dotProduct(forwardDirection, viewPos);
-    transformMatrix[12] = 0.0f;
-    transformMatrix[13] = 0.0f;
-    transformMatrix[14] = 0.0f;
-    transformMatrix[15] = 1.0f;
+    calculateTransformMatrix(0, 0, 0, viewRotation[0], viewRotation[1], viewRotation[2], transformMatrix);
 
     printf("distance: %f\n", distance);
     update();
@@ -1210,4 +1127,38 @@ bool OpenGLWidget::raycast(float mousePosition[2], const float triangle[9], cons
 //    printf("outHitPoint: %f %f %f\n", outHitPoint.x(), outHitPoint.y(), outHitPoint.z());
 
     return true;
+}
+
+void OpenGLWidget::calculateTransformMatrix(const float x, const float y, const float z, const float rx, const float ry, const float rz, float* outTransformMatrix) {
+    viewPosition[0] = 0.0f + distance * sinf(ry) * cosf(rx);
+    viewPosition[1] = 0.0f + distance * sinf(rx);
+    viewPosition[2] = 0.0f + distance * cosf(ry) * cosf(rx);
+
+    QVector3D viewPos(viewPosition[0], viewPosition[1], viewPosition[2]);
+    QVector3D forwardDirection(viewPosition[0], viewPosition[1], viewPosition[2]);
+    forwardDirection.normalize();
+    QVector3D worldUp(0.0f, 1.0f, 0.0f);
+    QVector3D rightDirection(QVector3D::crossProduct(forwardDirection, worldUp));
+    rightDirection.normalize();
+    QVector3D upDirection(QVector3D::crossProduct(rightDirection, forwardDirection));
+    upDirection.normalize();
+
+    printf("viewPosition: %f %f %f\n", viewPosition[0], viewPosition[1], viewPosition[2]);
+
+    outTransformMatrix[0] = -rightDirection.x();
+    outTransformMatrix[1] = -rightDirection.y();
+    outTransformMatrix[2] = -rightDirection.z();
+    outTransformMatrix[3] = QVector3D::dotProduct(rightDirection, viewPos);
+    outTransformMatrix[4] = upDirection.x();
+    outTransformMatrix[5] = upDirection.y();
+    outTransformMatrix[6] = upDirection.z();
+    outTransformMatrix[7] = -QVector3D::dotProduct(upDirection, viewPos);
+    outTransformMatrix[8] = forwardDirection.x();
+    outTransformMatrix[9] = forwardDirection.y();
+    outTransformMatrix[10] = forwardDirection.z();
+    outTransformMatrix[11] = QVector3D::dotProduct(-forwardDirection, viewPos);
+    outTransformMatrix[12] = 0.0f;
+    outTransformMatrix[13] = 0.0f;
+    outTransformMatrix[14] = 0.0f;
+    outTransformMatrix[15] = 1.0f;
 }
