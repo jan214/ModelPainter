@@ -24,9 +24,9 @@ int main(int argc, char **argv)
 {
     setbuf(stdout, NULL);
 
-    QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL, true);
 #ifndef __EMSCRIPTEN__
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
+    QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL, true);
 #endif
 
     QSurfaceFormat defaultFormat;
