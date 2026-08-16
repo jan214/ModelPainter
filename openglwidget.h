@@ -63,13 +63,14 @@ protected:
 
     inline void calculateTransformMatrix(const float x, const float y, const float z, const float rx, const float ry, const float rz, float* outTransformMatrix);
 
-#if defined(__EMSCRIPTEN__)
+#if 0
     Shader defaultShader;                       // the default forward rendering shader
 #else
     Shader deferredObjectShader;                // the object phase shader for deferred rendering
     Shader deferredPostProcessingShader;        // the lighting phase shader for deferred rendering
     GLuint deferredCustomFramebuffer;           // the custom framebuffer that deferred rendering uses to render the gbuffers
     std::vector<GLuint> sharedRenderTextures;   // render textures that are shared between shaders
+    GLuint customDepthTexture;                  // the depth texture for the deferred render framebuffer
 #endif
     GLuint& baseColorTexture;                   // the texture that is being drawn
     Shader brushShader;                         // the shader for the brush

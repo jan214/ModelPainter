@@ -389,9 +389,9 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
 
 void GraphicsView::ViewportOpenGLWidget::paintGL(){
     printf("GraphicsView::ViewportOpenGLWidget::paintGL\n");
-    glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
+    //glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
     glViewport(0, 0, width(), height());
-    glClearColor(1.0f,1.0f,1.0f,1.0f);
+    glClearColor(0.0f,0.0f,0.0f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     drawTextureShader.UseProgram();
@@ -402,6 +402,8 @@ void GraphicsView::ViewportOpenGLWidget::paintGL(){
     glBindTexture(GL_TEXTURE_2D, baseColorTexture);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 void GraphicsView::ViewportOpenGLWidget::resizeGL(int w, int h){

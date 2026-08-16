@@ -23,13 +23,14 @@ QOpenGLFunctions(),
 #else
 QOpenGLFunctions_3_0(),
 #endif
-#if defined(__EMSCRIPTEN__)
+#if 0
 defaultShader(),
 #else
 deferredObjectShader(),
 deferredPostProcessingShader(),
 deferredCustomFramebuffer(),
 sharedRenderTextures(),
+customDepthTexture(),
 #endif
 baseColorTexture(baseColorTexture),
 brushShader(),
@@ -218,7 +219,7 @@ void OpenGLWidget::initializeGL(){
 
     printf("initializeGL\n");
 
-#if defined(__EMSCRIPTEN__)
+#if 0
     // basic model renderer
     const char* vertexShaderSource = "#version 300 es\n"
                                      "precision highp float;\n"
@@ -319,6 +320,7 @@ void OpenGLWidget::initializeGL(){
     deferredObjectShader.AddUniform(&modelMatrix[0], 16, "modelMatrix", GL_FALSE);
     deferredObjectShader.AddUniform(&transformMatrix[0], 16, "viewMatrix", GL_FALSE);
     deferredObjectShader.AddUniform(&perspectiveMatrix[0], 16, "perspectiveMatrix", GL_FALSE);
+    printf("albedoTexture\n");
     deferredObjectShader.AddUniform(nullptr, 1, "albedoTexture", GL_FALSE);
     glGenTextures(1, &baseColorTexture);
     printf("openglwidget baseColorTexture: %i\n", baseColorTexture);
@@ -345,7 +347,7 @@ void OpenGLWidget::initializeGL(){
     glDrawBuffers(2, &buffers[0]);
     sharedRenderTextures.push_back(deferredObjectShader.AddSharedRenderTexture(width(), height(), sharedRenderTextures.size()));
     sharedRenderTextures.push_back(deferredObjectShader.AddSharedRenderTexture(width(), height(), sharedRenderTextures.size()));
-    deferredObjectShader.AddDepthTexture(width(), height());
+    customDepthTexture = deferredObjectShader.AddDepthTexture(width(), height());
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
         printf("framebuffer not complete\n");
@@ -482,8 +484,8 @@ void OpenGLWidget::paintGL(){
 
     if(mouseDown){
         printf("============== mouseDown ===============\n");
-        glViewport(0, 0, 512, 512);
         glBindFramebuffer(GL_FRAMEBUFFER, backFramebuffer);
+        glViewport(0, 0, 512, 512);
         glEnable(GL_BLEND);
         glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
 
@@ -501,15 +503,17 @@ void OpenGLWidget::paintGL(){
         printf("glGetError: %i\n", glError);
 
         glDisable(GL_BLEND);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, 0);
         glBindVertexArray(0);
         mouseDown = false;
     }
 
-    glViewport(0, 0, viewWidth, viewHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
+    glViewport(0, 0, viewWidth, viewHeight);
 
     if (modelLoader.ModelChanged) {
-#if defined(__EMSCRIPTEN__)
+#if 0
         defaultShader.ChangeAttribute(0, modelLoader.GetVertices(), modelLoader.GetVerticesSize(), "iPosition", 3);
         defaultShader.ChangeAttribute(1, modelLoader.GetTextureCoordinates(), modelLoader.GetTextureCoordinatesSize(), "iTextureCoordinates", 2);
 #else
@@ -520,7 +524,7 @@ void OpenGLWidget::paintGL(){
         printf("modelSize: %i\n", modelLoader.ModelSize);
     }
 
-#if defined(__EMSCRIPTEN__)
+#if 0
     //printf("----------------------\n");
     defaultShader.UseProgram();
     defaultShader.BindVAO();
@@ -549,6 +553,11 @@ void OpenGLWidget::paintGL(){
     // deferred rendering
     printf("deferredObjectShader\n");
     glBindFramebuffer(GL_FRAMEBUFFER, deferredCustomFramebuffer);
+    glViewport(0, 0, viewWidth, viewHeight);
+
+    const GLenum buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, &buffers[0]);
+
     deferredObjectShader.UseProgram();
     deferredObjectShader.BindVAO();
 
@@ -556,17 +565,20 @@ void OpenGLWidget::paintGL(){
     deferredObjectShader.ChangeUniform(0, &identity[0], 16, GL_FALSE);
     deferredObjectShader.ChangeUniform(1, &transformMatrix[0], 16, GL_FALSE);
     deferredObjectShader.ChangeUniform(2, &perspectiveMatrix[0], 16, GL_FALSE);
+    //deferredObjectShader.ChangeUniform(3, nullptr, 1, GL_FALSE);
     
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, baseColorTexture);
+    // this needs a fix, this will probably break when I change the deferred shader
+#if defined(__EMSCRIPTEN__)
+    glUniform1i(4, 0);
+#else
     glUniform1i(0, 0);
+#endif
     deferredObjectShader.BindTextures();
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    const GLenum buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-    glDrawBuffers(2, &buffers[0]);
 
     glEnable(GL_DEPTH_TEST);
     glDrawArrays(GL_TRIANGLES, 0, modelLoader.ModelSize);
@@ -574,6 +586,7 @@ void OpenGLWidget::paintGL(){
 
     //printf("deferredPostProcessingShader\n");
     glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
+    glViewport(0, 0, viewWidth, viewHeight);
     deferredPostProcessingShader.UseProgram();
     deferredPostProcessingShader.BindVAO();
 
@@ -585,6 +598,8 @@ void OpenGLWidget::paintGL(){
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glBindVertexArray(0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
 #endif
 }
 
@@ -888,6 +903,19 @@ void OpenGLWidget::resizeGL(int w, int h){
 
     perspectiveMatrix[0] = fovScale / aspectScale;
 
+#if 0
+#else
+    for (const GLuint& sharedRenderTexture : sharedRenderTextures) {
+        glBindTexture(GL_TEXTURE_2D, sharedRenderTexture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, viewWidth, viewHeight, 0, GL_RGBA, GL_FLOAT, nullptr);
+        glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D, customDepthTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, viewWidth, viewHeight, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glBindTexture(GL_TEXTURE_2D, 0);
+#endif
+
     //defaultShader.UseProgram();
 //    defaultShader.ChangeUniform(1, &perspectiveMatrix[0], 16, GL_FALSE);
     //defaultShader.ChangeUniform(1, &transformMatrix[0], 16, GL_FALSE);
@@ -898,9 +926,9 @@ void OpenGLWidget::resizeGL(int w, int h){
 //        printf("transformMatrix: %f %f %f %f\n", transformMatrix[i*4], transformMatrix[i*4+1], transformMatrix[i*4+2], transformMatrix[i*4+3]);
 //    }
 
-//    for(int i = 0; i < 4; i++){
-//        printf("perspectiveMatrix: %f %f %f %f\n", perspectiveMatrix[i*4], perspectiveMatrix[i*4+1], perspectiveMatrix[i*4+2], perspectiveMatrix[i*4+3]);
-//    }
+    for(int i = 0; i < 4; i++){
+        printf("perspectiveMatrix: %f %f %f %f\n", perspectiveMatrix[i*4], perspectiveMatrix[i*4+1], perspectiveMatrix[i*4+2], perspectiveMatrix[i*4+3]);
+    }
 
 //    QMatrix4x4 viewMat(&transformMatrix[0]);
 //    QMatrix4x4 perspectiveMat(&perspectiveMatrix[0]);
