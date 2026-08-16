@@ -5,7 +5,7 @@ A lightweight cross-platform 3D model painting application built with **Qt 6.7.3
 ## Features
 
 * **Dual Viewport Editing**: Paint seamlessly in both the 3D viewport and 2D texture space.
-* **Hybrid Rendering Pipeline**: Optimized performance via deferred rendering (currently only on desktop, webassembly uses forward rendering).
+* **Hybrid Rendering Pipeline**: Optimized performance via deferred rendering on Desktop and webassembly.
 * **Dynamic Brush Customization**:
   * Load custom images as brushes.
   * Adjust tint color via multiplication.
