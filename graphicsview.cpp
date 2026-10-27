@@ -160,7 +160,7 @@ void GraphicsView::drawBackground(QPainter* painter, const QRectF& rect){
     painter->beginNativePainting();
     if(openGLWidget != nullptr){
         QMatrix4x4 projection;
-        projection.ortho(0.0, viewport()->width(), 0.0, viewport()->height(), -1.0, 1.0);
+        projection.ortho(0.0, viewport()->width(), viewport()->height(), 0.0, -1.0, 1.0);
 
         QMatrix4x4 modelView(painter->transform());
         QMatrix4x4 finalMatrix = projection * modelView;
@@ -276,7 +276,7 @@ void GraphicsView::mouseReleaseEvent(QMouseEvent* mouseEvent) {
                 printf("image could not be saved in format\n");
             }
 
-            QFileDialog::saveFileContent(newByteArray, "texture");
+            QFileDialog::saveFileContent(newByteArray, "texture.png");
         });
         saveMenu->popup(mouseEvent->globalPosition().toPoint());
 
@@ -344,7 +344,7 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
                                      "out vec2 aTextureCoordinates;\n"
                                      "void main(){\n"
                                         "aTextureCoordinates = textureCoordinates;\n"
-                                        "vec4 transformedPosition = transformMatrix * vec4(position.x * 256.0 + 256.0, (position.y * 256.0 + 256.0), 0.0, 1.0);\n"
+                                        "vec4 transformedPosition = transformMatrix * vec4(position.x * 256.0 + 256.0, -position.y * 256.0 + 256.0, 0.0, 1.0);\n"
                                         "gl_Position = vec4(transformedPosition.xy, 0.0, 1.0);\n"
                                      "}";
 
@@ -383,14 +383,13 @@ void GraphicsView::ViewportOpenGLWidget::initializeGL(){
     const float scaleFactor[2] = {textureWidth/ViewWidth, textureHeight/ViewHeight};
     drawTextureShader.AddUniform(&scaleFactor[0], 2, "scaleFactor", GL_FALSE);
 
-
     resizeGL(width(), height());
 }
 
 void GraphicsView::ViewportOpenGLWidget::paintGL(){
     printf("GraphicsView::ViewportOpenGLWidget::paintGL\n");
     //glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
-    glViewport(0, 0, width(), height());
+    glViewport(0, 0, width()*devicePixelRatioF(), height()*devicePixelRatioF());
     glClearColor(0.0f,0.0f,0.0f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -419,7 +418,8 @@ void GraphicsView::ViewportOpenGLWidget::resizeGL(int w, int h){
     drawTextureShader.ChangeUniform(2, &AspectRatio, 1, GL_FALSE);
     const float textureWidth = 512.0f;
     const float textureHeight = 512.0f;
-    const float scaleFactor[2] = {textureWidth/ViewWidth, textureHeight/ViewHeight};
+    // const float scaleFactor[2] = {textureWidth/ViewWidth, textureHeight/ViewHeight};
+    const float scaleFactor[2] = {(float)devicePixelRatioF(), (float)devicePixelRatioF()};
     drawTextureShader.ChangeUniform(3, &scaleFactor[0], 2, GL_FALSE);
 }
 
