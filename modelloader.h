@@ -62,10 +62,12 @@ public:
 
 	inline float* GetVertices() { return customModelVertices.data(); }
 	inline int GetVerticesSize() { return customModelVertices.size(); }
-	inline float* GetNormals() { return customModelNormals.data(); }
-	inline int GetNormalsSize() { return customModelNormals.size(); }
 	inline float* GetTextureCoordinates() { return customModelTextureCoordinates.data(); }
 	inline int GetTextureCoordinatesSize() { return customModelTextureCoordinates.size(); }
+	inline float* GetNormals() { return customModelNormals.data(); }
+	inline int GetNormalsSize() { return customModelNormals.size(); }
+	inline float* GetTangents() { return customModelTangents.data(); }
+	inline float* GetBitangents() { return customModelBitangents.data(); }
 
 	void Subscribe(std::function<void()> onUpdate);
 
@@ -77,9 +79,13 @@ protected:
 	ModelLoader();
 	~ModelLoader(){}
 
+	void calculateTangents(const int startIndex, const int endIndex, const std::vector<float>& customModelVertices, const std::vector<float>& customModelTextureCoordinates, std::vector<float>& customModelTangents);
+
 	std::vector<float> customModelVertices;
 	std::vector<float> customModelTextureCoordinates;
 	std::vector<float> customModelNormals;
+	std::vector<float> customModelTangents;
+	std::vector<float> customModelBitangents;
 
 	std::vector<int> indices;
 	std::vector<float> vertices;

@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <stack>
+#include <future>
 
 BvhTree::BvhTree() :
 rootNode(),
@@ -48,8 +49,8 @@ void BvhTree::Initialize1(std::vector<float>& modelData) {
 }
 
 BvhTree::Node::Node() :
-mins{ 0.0f,0.0f,0.0f/*std::numeric_limits<float>().max(),std::numeric_limits<float>().max(),std::numeric_limits<float>().max()*/ },
-maxs{ 0.0f,0.0f,0.0f/*-std::numeric_limits<float>().max(),-std::numeric_limits<float>().max(),-std::numeric_limits<float>().max()*/ },
+mins{ std::numeric_limits<float>().max(),std::numeric_limits<float>().max(),std::numeric_limits<float>().max() },
+maxs{ -std::numeric_limits<float>().max(),-std::numeric_limits<float>().max(),-std::numeric_limits<float>().max() },
 left(nullptr),
 right(nullptr),
 selfIndex(-1),
@@ -195,19 +196,22 @@ void BvhTree::Node::Insert(const int index, const float triangle[9]) {
     for (int counter = 0; counter < 3; counter++) {
         if (triangle[counter*3] < mins[0]) {
             mins[0] = triangle[counter * 3];
-        } else if (triangle[counter*3] > maxs[0]) {
+        }
+        if (triangle[counter*3] > maxs[0]) {
             maxs[0] = triangle[counter * 3];
         }
 
         if (triangle[counter*3+1] < mins[1]) {
             mins[1] = triangle[counter * 3 + 1];
-        } else if (triangle[counter*3+1] > maxs[1]) {
+        }
+        if (triangle[counter*3+1] > maxs[1]) {
             maxs[1] = triangle[counter * 3 + 1];
         }
 
         if (triangle[counter*3+2] < mins[2]) {
             mins[2] = triangle[counter * 3 + 2];
-        } else if (triangle[counter*3+2] > maxs[2]) {
+        }
+        if (triangle[counter*3+2] > maxs[2]) {
             maxs[2] = triangle[counter * 3 + 2];
         }
     }
@@ -303,6 +307,8 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
     customModelVertices.clear();
     customModelTextureCoordinates.clear();
     customModelNormals.clear();
+    customModelTangents.clear();
+    customModelBitangents.clear();
 
     indices.clear();
     vertices.clear();
@@ -315,9 +321,11 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
 
     while (!modelFileText.atEnd()) {
         const QString line = modelFileText.readLine();
+        const QStringView lineView(line);
         if (line.startsWith("v ")) {
-            const QStringList lineStringList = line.split(" ");
-            for (const QString& string : lineStringList) {
+            const QList<QStringView> lineStringViewList = lineView.split(' ', Qt::SkipEmptyParts);
+            for (const QStringView& string : lineStringViewList) {
+                // printf("line.startsWith(v): %s\n", string.toString().toStdString().c_str());
                 bool ok = false;
                 const float value = string.toFloat(&ok);
                 if (ok) {
@@ -326,8 +334,8 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
                 }
             }
         } else if (line.startsWith("vt ")) {
-            const QStringList lineStringList = line.split(" ");
-            for (const QString& string : lineStringList) {
+            const QList<QStringView> lineStringViewList = lineView.split(' ', Qt::SkipEmptyParts);
+            for (const QStringView& string : lineStringViewList) {
                 bool ok = false;
                 const float value = string.toFloat(&ok);
                 if (ok) {
@@ -336,8 +344,8 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
                 }
             }
         } else if (line.startsWith("vn ")) {
-            const QStringList lineStringList = line.split(" ");
-            for (const QString& string : lineStringList) {
+            const QList<QStringView> lineStringViewList = lineView.split(' ', Qt::SkipEmptyParts);
+            for (const QStringView& string : lineStringViewList) {
                 bool ok = false;
                 const float value = string.toFloat(&ok);
                 if (ok) {
@@ -346,8 +354,9 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
                 }
             }
         } else if (line.startsWith("f ")) {
-            const QStringList lineStringList = line.split(" ");
-            const bool isTriangle = lineStringList.size() == 4;
+            const QList<QStringView> lineStringViewList = lineView.split(' ', Qt::SkipEmptyParts);
+            // const QStringList lineStringList = line.split(" ", Qt::SkipEmptyParts);
+            const bool isTriangle = lineStringViewList.size() == 4;
             //if (isTriangle) {
             //    printf("0: %s 1: %s 2: %s 3: %s\n", lineStringList[0].toStdString().c_str(), lineStringList[1].toStdString().c_str(), lineStringList[2].toStdString().c_str(), lineStringList[3].toStdString().c_str());
             //} else {
@@ -358,12 +367,12 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
             int vertexIndices[4] = { -1, -1, -1, -1 };
             int textureIndices[4] = { -1, -1, -1, -1 };
             int normalIndices[4] = { -1, -1, -1, -1 };
-            for (const QString& string : lineStringList) {
-                //printf("lineStringList: %s\n", string.toStdString().c_str());
-                if (string.startsWith("f"))
+            for (const QStringView& string : lineStringViewList) {
+                // printf("lineStringList: %s\n", string.toString().toStdString().c_str());
+                if (string.startsWith('f'))
                     continue;
 
-                const QStringList componentsString = string.split("/");
+                const QList<QStringView> componentsString = string.split('/');
                 bool ok = false;
                 const int vertexIndex = componentsString[0].toInt(&ok);
                 if (ok) {
@@ -439,7 +448,7 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
         } else if (line.startsWith("o ")) {
             printf("line: %s\n", line.toStdString().c_str());
         }
-        //printf("%s\n", line.toUtf8().data());
+        // printf("%s\n", line.toUtf8().data());
     }
 
     //for (int count = 0; count < indices.size(); count+=3) {
@@ -457,7 +466,9 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
     //}
     //printf("verticesSize: %i normalsSize: %i indicesSize: %i\n", vertices.size(), normals.size(), indices.size());
 
-    for (int counter = 0; counter < indices.size(); counter += 3) {
+    const int indicesSize = indices.size();
+    printf("indicesSize: %i\n", indicesSize);
+    for (int counter = 0; counter < indicesSize; counter += 3) {
         //printf("indices: %i %i %i / %i %i %i / %i %i %i\n", indices[counter] * 3, indices[counter]*3+1, indices[counter]*3+2,
         //    indices[counter+1] * 3, indices[counter+1] * 3 + 1, indices[counter+1] * 3 + 2,
         //    indices[counter+2] * 3, indices[counter+2] * 3 + 1, indices[counter+2] * 3 + 2);
@@ -486,13 +497,19 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
         customModelNormals.push_back(normals[normalsIndices[counter + 2] * 3 + 2]);
     }
 
+    // printf("normals\n");
+    // for (int counter = 0; counter < 108; counter+=3) {
+    //     printf("%ff,%ff,%ff\n", customModelNormals[counter], customModelNormals[counter + 1], customModelNormals[counter + 2]);
+    // }
+
     //printf("=================================================================\n");
 
     //for (int counter = 0; counter < textureCoordinates.size(); counter+=2) {
     //    printf("textureCoordinates %i %i: %f %f\n", counter, counter+1, textureCoordinates[counter], textureCoordinates[counter+1]);
     //}
 
-    for (int counter = 0; counter < texturesIndices.size(); counter++) {
+    const int textureIndicesSize = texturesIndices.size();
+    for (int counter = 0; counter < textureIndicesSize; counter++) {
         //printf("textures: %i %i / %i %i / %i %i\n", texturesIndices[counter] * 2, texturesIndices[counter] * 2 + 1,
         //    texturesIndices[counter + 1] * 2, texturesIndices[counter + 1] * 2 + 1,
         //    texturesIndices[counter + 2] * 2, texturesIndices[counter + 2] * 2 + 1);
@@ -538,6 +555,139 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
     //    printf("normal %i: %f %f %f\n", counter, customModelNormals[counter], customModelNormals[counter + 1], customModelNormals[counter + 2]);
     //}
 
+    const int verticesSize = customModelVertices.size()/3;
+
+    customModelTangents.resize(verticesSize * 3);
+    //printf("customModelTangents: %i\n", customModelTangents.size());
+
+#if defined(__EMSCRIPTEN__)
+    for (int counter = 0; counter < verticesSize; counter+=3) {
+        // Get positions of the triangle vertices
+        const float v0x = customModelVertices[counter * 3];
+        const float v0y = customModelVertices[counter * 3 + 1];
+        const float v0z = customModelVertices[counter * 3 + 2];
+        const float v1x = customModelVertices[counter * 3 + 3];
+        const float v1y = customModelVertices[counter * 3 + 4];
+        const float v1z = customModelVertices[counter * 3 + 5];
+        const float v2x = customModelVertices[counter * 3 + 6];
+        const float v2y = customModelVertices[counter * 3 + 7];
+        const float v2z = customModelVertices[counter * 3 + 8];
+
+        // Get UVs of the triangle vertices
+        const float uv0u = customModelTextureCoordinates[counter * 2];
+        const float uv0v = customModelTextureCoordinates[counter * 2 + 1];
+        const float uv1u = customModelTextureCoordinates[counter * 2 + 2];
+        const float uv1v = customModelTextureCoordinates[counter * 2 + 3];
+        const float uv2u = customModelTextureCoordinates[counter * 2 + 4];
+        const float uv2v = customModelTextureCoordinates[counter * 2 + 5];
+
+        // Calculate edge vectors (position changes)
+        const float deltaPos1x = v1x - v0x;
+        const float deltaPos1y = v1y - v0y;
+        const float deltaPos1z = v1z - v0z;
+        const float deltaPos2x = v2x - v0x;
+        const float deltaPos2y = v2y - v0y;
+        const float deltaPos2z = v2z - v0z;
+
+        // Calculate UV space edge vectors (UV changes)
+        const float deltaUV1x = uv1u - uv0u;
+        const float deltaUV1y = uv1v - uv0v;
+        const float deltaUV2x = uv2u - uv0u;
+        const float deltaUV2y = uv2v - uv0v;
+
+        const float det = (deltaUV1x * deltaUV2y - deltaUV1y * deltaUV2x);
+
+        // Calculate the fraction matrix determinant inverse
+        float r = 1.0f;
+        if (std::fabs(det) > 0.00001f) {
+            r = 1.0f / det;
+            //printf("r: %f\n", r);
+
+            // Solve for the tangent vector
+            float tangent[3] = { 0.0f,0.0f,0.0f };
+            tangent[0] = r * (deltaUV2y * deltaPos1x - deltaUV1y * deltaPos2x);
+            tangent[1] = r * (deltaUV2y * deltaPos1y - deltaUV1y * deltaPos2y);
+            tangent[2] = r * (deltaUV2y * deltaPos1z - deltaUV1y * deltaPos2z);
+            //printf("deltaUV2y: %f deltaPos1x: %f deltaUV1y: %f deltaPos2x: %f\n", deltaUV2y, deltaPos1x, deltaUV1y, deltaPos2x);
+
+            // Accumulate the tangent into all three vertices forming this triangle
+            // (This allows shared vertices to average out their tangents across faces)
+            //outTangents[i0].x += tangent.x; outTangents[i0].y += tangent.y; outTangents[i0].z += tangent.z;
+            //outTangents[i1].x += tangent.x; outTangents[i1].y += tangent.y; outTangents[i1].z += tangent.z;
+            //outTangents[i2].x += tangent.x; outTangents[i2].y += tangent.y; outTangents[i2].z += tangent.z;
+
+            customModelTangents[counter * 3] = tangent[0];
+            customModelTangents[counter * 3 + 1] = tangent[1];
+            customModelTangents[counter * 3 + 2] = tangent[2];
+
+            customModelTangents[counter * 3 + 3] = tangent[0];
+            customModelTangents[counter * 3 + 4] = tangent[1];
+            customModelTangents[counter * 3 + 5] = tangent[2];
+
+            customModelTangents[counter * 3 + 6] = tangent[0];
+            customModelTangents[counter * 3 + 7] = tangent[1];
+            customModelTangents[counter * 3 + 8] = tangent[2];
+            continue;
+        }
+        //printf("deltaUV1x: %f deltaUV2y: %f deltaUV1y: %f deltaUV2x: %f\n", deltaUV1x, deltaUV2y, deltaUV1y, deltaUV2x);
+        //printf("r: %f\n", r);
+
+        customModelTangents[counter * 3] = 0.0f;
+        customModelTangents[counter * 3 + 1] = 0.0f;
+        customModelTangents[counter * 3 + 2] = 0.0f;
+
+        customModelTangents[counter * 3 + 3] = 0.0f;
+        customModelTangents[counter * 3 + 4] = 0.0f;
+        customModelTangents[counter * 3 + 5] = 0.0f;
+
+        customModelTangents[counter * 3 + 6] = 0.0f;
+        customModelTangents[counter * 3 + 7] = 0.0f;
+        customModelTangents[counter * 3 + 8] = 0.0f;
+    }
+#else
+    int halfPoint = verticesSize / 2;
+    halfPoint = halfPoint - (halfPoint % 3);
+    std::future<void> thread1 = std::async(std::launch::async, &ModelLoader::calculateTangents, this, 0, halfPoint, std::ref(customModelVertices), std::ref(customModelTextureCoordinates), std::ref(customModelTangents));
+    std::future<void> thread2 = std::async(std::launch::async, &ModelLoader::calculateTangents, this, halfPoint, verticesSize, std::ref(customModelVertices), std::ref(customModelTextureCoordinates), std::ref(customModelTangents));
+
+    thread1.get();
+    thread2.get();
+#endif
+
+    //for (int counter = 0; counter < 3000; counter += 3) {
+    //    printf("tangent: %f %f %f\n", customModelTangents[counter], customModelTangents[counter + 1], customModelTangents[counter + 2]);
+    //}
+
+    const int tangentsSize = customModelTangents.size();
+    for (int counter = 0; counter < tangentsSize; counter+=3) {
+        if (customModelTangents[counter] == 0.0f && customModelTangents[counter + 1] == 0.0f && customModelTangents[counter + 2] == 0.0f)
+            continue;
+
+        const float length = sqrtf(customModelTangents[counter] * customModelTangents[counter] + customModelTangents[counter + 1] * customModelTangents[counter + 1] + customModelTangents[counter + 2] * customModelTangents[counter + 2]);
+        customModelTangents[counter] /= length;
+        customModelTangents[counter + 1] /= length;
+        customModelTangents[counter + 2] /= length;
+    }
+
+    printf("tangents\n");
+    for (int counter = 0; counter < 108; counter += 3) {
+        printf("%ff,%ff,%ff\n", customModelTangents[counter], customModelTangents[counter + 1], customModelTangents[counter + 2]);
+    }
+
+    customModelBitangents.resize(tangentsSize);
+
+    const int bitangentsSize = customModelBitangents.size();
+    for (int counter = 0; counter < bitangentsSize; counter+=3) {
+        customModelBitangents[counter] = customModelNormals[counter + 1] * customModelTangents[counter + 2] - customModelNormals[counter + 2] * customModelTangents[counter + 1];
+        customModelBitangents[counter + 1] = customModelNormals[counter + 2] * customModelTangents[counter] - customModelNormals[counter] * customModelTangents[counter + 2];
+        customModelBitangents[counter + 2] = customModelNormals[counter] * customModelTangents[counter + 1] - customModelNormals[counter + 1] * customModelTangents[counter];
+    }
+
+    printf("bitangents\n");
+    for (int counter = 0; counter < 108; counter += 3) {
+        printf("%ff,%ff,%ff\n", customModelBitangents[counter], customModelBitangents[counter + 1], customModelBitangents[counter + 2]);
+    }
+
     ModelChanged = true;
     ModelSize = GetVerticesSize() / 3;
 
@@ -548,7 +698,7 @@ void ModelLoader::LoadModel(QTextStream& modelFileText) {
 
     printf("customModelVerticesSize: %zi\n", customModelVertices.size());
 
-    for (std::function<void()> updateFunction : updateFunctions) {
+    for (const std::function<void()>& updateFunction : updateFunctions) {
         updateFunction();
     }
 }
@@ -564,6 +714,8 @@ bvhTree(nullptr),
 customModelVertices(),
 customModelTextureCoordinates(),
 customModelNormals(),
+customModelTangents(),
+customModelBitangents(),
 indices(),
 vertices(),
 texturesIndices(),
@@ -572,4 +724,90 @@ normalsIndices(),
 normals(),
 updateFunctions(){
 
+}
+
+void ModelLoader::calculateTangents(const int startIndex, const int endIndex, const std::vector<float>& customModelVertices, const std::vector<float>& customModelTextureCoordinates, std::vector<float>& customModelTangents){
+    for (int counter = startIndex; counter < endIndex; counter+=3) {
+        // Get positions of the triangle vertices
+        const float v0x = customModelVertices[counter * 3];
+        const float v0y = customModelVertices[counter * 3 + 1];
+        const float v0z = customModelVertices[counter * 3 + 2];
+        const float v1x = customModelVertices[counter * 3 + 3];
+        const float v1y = customModelVertices[counter * 3 + 4];
+        const float v1z = customModelVertices[counter * 3 + 5];
+        const float v2x = customModelVertices[counter * 3 + 6];
+        const float v2y = customModelVertices[counter * 3 + 7];
+        const float v2z = customModelVertices[counter * 3 + 8];
+
+        // Get UVs of the triangle vertices
+        const float uv0u = customModelTextureCoordinates[counter * 2];
+        const float uv0v = customModelTextureCoordinates[counter * 2 + 1];
+        const float uv1u = customModelTextureCoordinates[counter * 2 + 2];
+        const float uv1v = customModelTextureCoordinates[counter * 2 + 3];
+        const float uv2u = customModelTextureCoordinates[counter * 2 + 4];
+        const float uv2v = customModelTextureCoordinates[counter * 2 + 5];
+
+        // Calculate edge vectors (position changes)
+        const float deltaPos1x = v1x - v0x;
+        const float deltaPos1y = v1y - v0y;
+        const float deltaPos1z = v1z - v0z;
+        const float deltaPos2x = v2x - v0x;
+        const float deltaPos2y = v2y - v0y;
+        const float deltaPos2z = v2z - v0z;
+
+        // Calculate UV space edge vectors (UV changes)
+        const float deltaUV1x = uv1u - uv0u;
+        const float deltaUV1y = uv1v - uv0v;
+        const float deltaUV2x = uv2u - uv0u;
+        const float deltaUV2y = uv2v - uv0v;
+
+        const float det = (deltaUV1x * deltaUV2y - deltaUV1y * deltaUV2x);
+
+        // Calculate the fraction matrix determinant inverse
+        float r = 1.0f;
+        if (std::fabs(det) > 0.00001f) {
+            r = 1.0f / det;
+            //printf("r: %f\n", r);
+
+            // Solve for the tangent vector
+            float tangent[3] = { 0.0f,0.0f,0.0f };
+            tangent[0] = r * (deltaUV2y * deltaPos1x - deltaUV1y * deltaPos2x);
+            tangent[1] = r * (deltaUV2y * deltaPos1y - deltaUV1y * deltaPos2y);
+            tangent[2] = r * (deltaUV2y * deltaPos1z - deltaUV1y * deltaPos2z);
+            //printf("deltaUV2y: %f deltaPos1x: %f deltaUV1y: %f deltaPos2x: %f\n", deltaUV2y, deltaPos1x, deltaUV1y, deltaPos2x);
+
+            // Accumulate the tangent into all three vertices forming this triangle
+            // (This allows shared vertices to average out their tangents across faces)
+            //outTangents[i0].x += tangent.x; outTangents[i0].y += tangent.y; outTangents[i0].z += tangent.z;
+            //outTangents[i1].x += tangent.x; outTangents[i1].y += tangent.y; outTangents[i1].z += tangent.z;
+            //outTangents[i2].x += tangent.x; outTangents[i2].y += tangent.y; outTangents[i2].z += tangent.z;
+
+            customModelTangents[counter * 3] = tangent[0];
+            customModelTangents[counter * 3 + 1] = tangent[1];
+            customModelTangents[counter * 3 + 2] = tangent[2];
+
+            customModelTangents[counter * 3 + 3] = tangent[0];
+            customModelTangents[counter * 3 + 4] = tangent[1];
+            customModelTangents[counter * 3 + 5] = tangent[2];
+
+            customModelTangents[counter * 3 + 6] = tangent[0];
+            customModelTangents[counter * 3 + 7] = tangent[1];
+            customModelTangents[counter * 3 + 8] = tangent[2];
+            continue;
+        }
+        //printf("deltaUV1x: %f deltaUV2y: %f deltaUV1y: %f deltaUV2x: %f\n", deltaUV1x, deltaUV2y, deltaUV1y, deltaUV2x);
+        //printf("r: %f\n", r);
+
+        customModelTangents[counter * 3] = 0.0f;
+        customModelTangents[counter * 3 + 1] = 0.0f;
+        customModelTangents[counter * 3 + 2] = 0.0f;
+
+        customModelTangents[counter * 3 + 3] = 0.0f;
+        customModelTangents[counter * 3 + 4] = 0.0f;
+        customModelTangents[counter * 3 + 5] = 0.0f;
+
+        customModelTangents[counter * 3 + 6] = 0.0f;
+        customModelTangents[counter * 3 + 7] = 0.0f;
+        customModelTangents[counter * 3 + 8] = 0.0f;
+    }
 }
